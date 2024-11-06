@@ -10,11 +10,11 @@ module frame_transmission (
     // State encoding
     reg [2:0] state;
     reg [31:0] crc_reg;
-    reg [7:0] preamble = 8'h55;  // Preamble value
-    reg [7:0] sfd = 8'hD5;       // Start frame delimiter
+    reg [7:0] preamble = 8'h55;            // Preamble value
+    reg [7:0] sfd = 8'hD5;                 // Start frame delimiter
     reg [47:0] dest_addr = 48'hFF_FF_FF_FF_FF_FF; // Broadcast address for example
     reg [47:0] src_addr = 48'hAA_BB_CC_DD_EE_FF;  // Source MAC address
-    reg [15:0] eth_type = 16'h0800;  // EtherType for IPv4
+    reg [15:0] eth_type = 16'h0800;        // EtherType for IPv4
 
     reg [15:0] byte_count;
 
@@ -38,6 +38,7 @@ module frame_transmission (
         end else begin
             case (state)
                 IDLE: begin
+                    tx_done <= 0;
                     if (tx_en) begin
                         state <= PREAMBLE;
                         byte_count <= 0;
@@ -54,44 +55,45 @@ module frame_transmission (
                 SFD: begin
                     tx_out <= sfd;
                     state <= DEST_ADDR;
+                    byte_count <= 0;
                 end
                 DEST_ADDR: begin
-                    tx_out <= dest_addr[47:40 - byte_count*8];
+                    tx_out <= dest_addr[47 - (byte_count * 8) +: 8];  // Send one byte at a time
                     byte_count <= byte_count + 1;
-                    if (byte_count == 6) begin
+                    if (byte_count == 5) begin
                         state <= SRC_ADDR;
                         byte_count <= 0;
                     end
                 end
                 SRC_ADDR: begin
-                    tx_out <= src_addr[47:40 - byte_count*8];
+                    tx_out <= src_addr[47 - (byte_count * 8) +: 8];
                     byte_count <= byte_count + 1;
-                    if (byte_count == 6) begin
+                    if (byte_count == 5) begin
                         state <= ETH_TYPE;
                         byte_count <= 0;
                     end
                 end
                 ETH_TYPE: begin
-                    tx_out <= eth_type[15:8 - byte_count*8];
+                    tx_out <= eth_type[15 - (byte_count * 8) +: 8];
                     byte_count <= byte_count + 1;
-                    if (byte_count == 2) begin
+                    if (byte_count == 1) begin
                         state <= PAYLOAD;
                         byte_count <= 0;
                     end
                 end
                 PAYLOAD: begin
-                    tx_out <= data_in[31:24 - byte_count*8];
+                    tx_out <= data_in[31 - (byte_count * 8) +: 8];
+                    crc_reg <= (crc_reg << 8) ^ data_in[31 - (byte_count * 8) +: 8];  // Update CRC with byte
                     byte_count <= byte_count + 1;
-                    crc_reg <= (crc_reg << 8) ^ data_in[31:24 - byte_count*8]; // Update CRC
-                    if (byte_count == 4) begin
+                    if (byte_count == 3) begin
                         state <= CRC;
                         byte_count <= 0;
                     end
                 end
                 CRC: begin
-                    tx_out <= crc_reg[31:24 - byte_count*8];
+                    tx_out <= crc_reg[31 - (byte_count * 8) +: 8];
                     byte_count <= byte_count + 1;
-                    if (byte_count == 4) begin
+                    if (byte_count == 3) begin
                         state <= IDLE;
                         tx_done <= 1;
                     end
