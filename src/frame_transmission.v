@@ -1,76 +1,102 @@
 module frame_transmission (
     input wire clk,
     input wire rst_n,
-    input wire [7:0] fifo_data, // data from the fifo_tx
-    input wire fifo_empty, // fifo empty flag
-    input wire start_tx, // sign to start transimission
-    input wire [31:0] crc_out, // crc from crc module
-    output reg [7:0] tx_data, // transmitted data
-    output reg tx_valid, // flag if the data valid for transmission
-    output reg tx_done //flag that transmission done
+    input wire [31:0] data_in,   // Payload data
+    input wire tx_en,            // Enable transmission
+    output reg [7:0] tx_out,     // Serialized frame output
+    output reg tx_done           // Transmission done signal
 );
 
-reg [3:0] state; //state machine
-reg [31:0] crc_reg; //hold crc value
-reg [7:0] byte_counter; // counting transmitted bytes
+    // State encoding
+    reg [2:0] state;
+    reg [31:0] crc_reg;
+    reg [7:0] preamble = 8'h55;  // Preamble value
+    reg [7:0] sfd = 8'hD5;       // Start frame delimiter
+    reg [47:0] dest_addr = 48'hFF_FF_FF_FF_FF_FF; // Broadcast address for example
+    reg [47:0] src_addr = 48'hAA_BB_CC_DD_EE_FF;  // Source MAC address
+    reg [15:0] eth_type = 16'h0800;  // EtherType for IPv4
 
-// fsm states
-localparam IDLE = 4'b0001,
-SEND_DATA = 4'b0010,
-SEND_CRC = 4'b0100,
-DONE = 4'b1000;
+    reg [15:0] byte_count;
 
-always @(posedge clk or negedge rst_n) begin
-    if (!rst_n) begin
-        state <= IDLE;
-        tx_valid <= 0;
-        tx_done <= 0;
-        byte_counter <= 0;
-        crc_reg <= 32'hFFFFFFFF;
-    end else begin
-        case (state)
-            IDLE:begin
-                tx_valid <= 0;
-                tx_done <= 0;
-                byte_counter <= 0;
-                if (start_tx && !fifo_empty) begin
-                    state <= SEND_DATA;
-                end 
-            end
+    // Define states
+    localparam IDLE = 3'b000;
+    localparam PREAMBLE = 3'b001;
+    localparam SFD = 3'b010;
+    localparam DEST_ADDR = 3'b011;
+    localparam SRC_ADDR = 3'b100;
+    localparam ETH_TYPE = 3'b101;
+    localparam PAYLOAD = 3'b110;
+    localparam CRC = 3'b111;
 
-            SEND_DATA: begin
-                if (!fifo_empty) begin
-                    tx_data <= fifo_data;
-                    tx_valid <= 1;
-                    byte_counter <= byte_counter + 1;
-                    if (byte_counter == 11) begin // assumtion 12 bit for example
-                        state <= SEND_CRC;
-                        crc_reg <= crc_out; // capture crc after data
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            state <= IDLE;
+            tx_out <= 0;
+            tx_done <= 0;
+            byte_count <= 0;
+            crc_reg <= 32'hFFFFFFFF;  // Initial CRC value
+        end else begin
+            case (state)
+                IDLE: begin
+                    if (tx_en) begin
+                        state <= PREAMBLE;
+                        byte_count <= 0;
                     end
                 end
-            end
-
-            SEND_CRC: begin
-                //send scrc byte by byte
-                case (byte_counter)
-                    12: tx_data <= crc_reg[31:24];  // First CRC byte
-                    13: tx_data <= crc_reg[23:16];  // Second CRC byte
-                    14: tx_data <= crc_reg[15:8];   // Third CRC byte
-                    15: tx_data <= crc_reg[7:0];    // Fourth CRC byte
-                endcase
-                tx_valid <= 1;
-                byte_counter <= byte_counter + 1;
-                if (byte_counter == 16) begin
-                    state <= DONE;
+                PREAMBLE: begin
+                    tx_out <= preamble;
+                    byte_count <= byte_count + 1;
+                    if (byte_count == 7) begin
+                        state <= SFD;
+                        byte_count <= 0;
+                    end
                 end
-            end
-
-            DONE: begin
-                tx_valid <= 0;
-                tx_done <= 1;
-                state <= IDLE;
-            end
-        endcase
+                SFD: begin
+                    tx_out <= sfd;
+                    state <= DEST_ADDR;
+                end
+                DEST_ADDR: begin
+                    tx_out <= dest_addr[47:40 - byte_count*8];
+                    byte_count <= byte_count + 1;
+                    if (byte_count == 6) begin
+                        state <= SRC_ADDR;
+                        byte_count <= 0;
+                    end
+                end
+                SRC_ADDR: begin
+                    tx_out <= src_addr[47:40 - byte_count*8];
+                    byte_count <= byte_count + 1;
+                    if (byte_count == 6) begin
+                        state <= ETH_TYPE;
+                        byte_count <= 0;
+                    end
+                end
+                ETH_TYPE: begin
+                    tx_out <= eth_type[15:8 - byte_count*8];
+                    byte_count <= byte_count + 1;
+                    if (byte_count == 2) begin
+                        state <= PAYLOAD;
+                        byte_count <= 0;
+                    end
+                end
+                PAYLOAD: begin
+                    tx_out <= data_in[31:24 - byte_count*8];
+                    byte_count <= byte_count + 1;
+                    crc_reg <= (crc_reg << 8) ^ data_in[31:24 - byte_count*8]; // Update CRC
+                    if (byte_count == 4) begin
+                        state <= CRC;
+                        byte_count <= 0;
+                    end
+                end
+                CRC: begin
+                    tx_out <= crc_reg[31:24 - byte_count*8];
+                    byte_count <= byte_count + 1;
+                    if (byte_count == 4) begin
+                        state <= IDLE;
+                        tx_done <= 1;
+                    end
+                end
+            endcase
+        end
     end
-end 
 endmodule
