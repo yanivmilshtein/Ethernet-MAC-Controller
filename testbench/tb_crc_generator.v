@@ -36,7 +36,7 @@ module tb_crc_generator;
         #20 rst_n = 1;
 
         // Apply the test input 1011_0110 (B6 in hexadecimal)
-        #30 data_in = 32'hB6;   // Set input data
+        #50 data_in = 32'hB6;   // Set input data
         data_valid = 1;         // Assert data valid signal
         crc_en = 1;             // Enable CRC calculation
         
