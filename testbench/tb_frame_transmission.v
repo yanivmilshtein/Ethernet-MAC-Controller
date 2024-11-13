@@ -21,7 +21,9 @@ module tb_frame_transmission();
         .start(start),
         .tx_out(tx_out),
         .tx_done(tx_done),
-        .tx_en(tx_en)
+        .tx_en(tx_en),
+        .state(state),
+        .next_state(next_state)
     );
 
     // Clock generation
@@ -33,26 +35,30 @@ module tb_frame_transmission();
     // Testbench stimulus
     initial begin
         // Initialize inputs
-        rst_n = 0;
-        start = 0;
+        rst_n = 1;
+        start = 1;
         dest_addr = 48'h123456789ABC;
         src_addr = 48'hABCDEF123456;
         eth_type = 16'h0800;
         data_in = 32'hDEADBEEF;
 
         // Reset and start sequence
-        #10 rst_n = 1; // Release reset
-        #10 start = 1; // Start frame transmission
-        #10 start = 0; // De-assert start signal
+       // #10 rst_n = 0; // Release reset
+       // #10 rst_n = 1;
+       // #10 start = 1; // Start frame transmission
+        //#10 start = 0; // De-assert start signal
 
         // Wait for transmission to complete
         wait (tx_done);
-        #20 $finish;
+        #50 $finish;
     end
 
     // Monitor tx_out to observe the serialized output
     initial begin
-        $monitor("Time: %0d, tx_out: %h, tx_en: %b, tx_done: %b",
-                  $time, tx_out, tx_en, tx_done);
+        $monitor("Time: %0d, tx_out: %h, tx_en: %b, tx_done: %b, state: %b, next_state: %b",
+          $time, tx_out, tx_en, tx_done, uut.state, uut.next_state);
+
+        //$monitor("Time: %0d, tx_out: %h, tx_en: %b, tx_done: %b",
+                  //$time, tx_out, tx_en, tx_done);
     end
 endmodule

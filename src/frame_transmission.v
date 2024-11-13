@@ -8,7 +8,9 @@ module frame_transmission(
     input wire start,          // Signal to start frame transmission
     output reg [7:0] tx_out,
     output reg tx_done,
-    output reg tx_en           // Transmission enable
+    output reg tx_en,           // Transmission enable
+    output reg [2:0] state,
+    output reg [2:0] next_state
 );
 
     // State encoding
@@ -21,11 +23,11 @@ module frame_transmission(
     parameter PAYLOAD     = 3'b110;
     parameter CRC         = 3'b111;
 
-    reg [2:0] state, next_state;
+    //reg [2:0] state, next_state;
     reg [2:0] byte_count;  // Count for bytes within each section
 
     // FSM sequential logic
-    always @(posedge clk or negedge rst_n) begin
+    always @(negedge clk or negedge rst_n) begin
         if (!rst_n) begin
             state <= IDLE;
             byte_count <= 0;
@@ -38,7 +40,7 @@ module frame_transmission(
     end
 
     // FSM combinational logic
-    always @* begin
+    always @(posedge clk) begin
         // Default values
         next_state = state;
         tx_en = 0;
