@@ -39,11 +39,12 @@ module tb_frame_transmission();
         src_addr = 48'hABCDEF123456;
         eth_type = 16'h0800;
         data_in = 32'hDEADBEEF;
-        
+
         // Reset and start sequence
         #10 rst_n = 1; // Release reset
         #10 start = 1; // Start frame transmission
-        
+        #10 start = 0; // De-assert start signal
+
         // Wait for transmission to complete
         wait (tx_done);
         #20 $finish;
@@ -51,7 +52,7 @@ module tb_frame_transmission();
 
     // Monitor tx_out to observe the serialized output
     initial begin
-        $monitor("Time: %0d, tx_out: %h, state: %b, tx_en: %b, tx_done: %b", 
-                  $time, tx_out, uut.state, tx_en, tx_done);
+        $monitor("Time: %0d, tx_out: %h, tx_en: %b, tx_done: %b",
+                  $time, tx_out, tx_en, tx_done);
     end
 endmodule

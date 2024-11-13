@@ -31,6 +31,7 @@ module frame_transmission(
             byte_count <= 0;
             tx_en <= 0;
             tx_done <= 0;
+            tx_out <= 8'h00;
         end else begin
             state <= next_state;
         end
