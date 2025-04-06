@@ -25,6 +25,18 @@ module frame_transmission(
 
     //reg [2:0] state, next_state;
     reg [2:0] byte_count;  // Count for bytes within each section
+    wire [31:0] crc_out;          // CRC output from crc_generator
+    wire crc_done;               // Indicates completion of CRC calculation
+
+    // Instantiate the crc_generator
+    crc_generator crc_gen_inst (
+        .clk(clk),
+        .data_in(tx_out),       // Pass the data that was transmitted
+        .data_valid(tx_en),     // Asserted when tx_out has valid data to feed into CRC
+        .crc_en(state == PAYLOAD),  // Enable CRC calculation during PAYLOAD
+        .crc_out(crc_out),      // Output CRC byte
+        .crc_done(crc_done)     // Completion signal for CRC
+        );
 
     // FSM sequential logic
     always @(negedge clk or negedge rst_n) begin
@@ -57,7 +69,7 @@ module frame_transmission(
             end
 
             PREAMBLE: begin
-                tx_out = 8'h55;
+                tx_out = 8'hAA;
                 tx_en = 1;
                 if (byte_count == 6) begin
                     next_state = SFD;
@@ -68,7 +80,7 @@ module frame_transmission(
             end
 
             SFD: begin
-                tx_out = 8'hD5;
+                tx_out = 8'hAB;
                 tx_en = 1;
                 next_state = DEST_ADDR;
                 byte_count = 0;
@@ -119,10 +131,21 @@ module frame_transmission(
             end
 
             CRC: begin
-                tx_out = 8'hFF;  // Placeholder for CRC byte
-                tx_en = 1;
-                tx_done = 1;      // Indicate transmission is complete
-                next_state = IDLE;
+                if (crc_done) begin
+                    // Transmit each byte of the 32-bit CRC output sequentially
+                    tx_out = crc_out[31 - (byte_count * 8) -: 8];
+                     tx_en = 1;
+                    if (byte_count == 3) begin
+                        tx_done = 1;      // Transmission is complete
+                        next_state = IDLE;
+                        byte_count = 0;
+                    end else begin
+                        byte_count = byte_count + 1;
+                    end
+                end else begin
+                    tx_out = 8'h00;       // Waiting for CRC to complete
+                    tx_en = 0;
+                end
             end
 
             default: begin
