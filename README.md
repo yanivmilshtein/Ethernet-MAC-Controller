@@ -1,4 +1,4 @@
-Hello and welcome to an educational fpga verilog project: ** Ethernet MAC controller**
+Hello and welcome to an educational fpga verilog project: **Ethernet MAC controller**
 This project aims to implement a simplified version of the Ethernet32 protocol, which resides in the Data Link Layer of the OSI model.
 the whole module is comprised from the following sub modules:
   * MAC controller - the top module that links all the sub modules and coordinates the transmission and reception operations
