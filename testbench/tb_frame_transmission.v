@@ -2,7 +2,6 @@ module tb_frame_transmission;
 
     // Inputs
     reg clk;
-    reg rst_n;
     reg start;
     reg [47:0] dest_addr;
     reg [47:0] src_addr;
@@ -18,10 +17,10 @@ module tb_frame_transmission;
     wire crc_done;
     wire [2:0] byte_count;
     wire [31:0] crc__out;
+
     // Instantiate the frame_transmission module
     frame_transmission uut (
         .clk(clk),
-        .rst_n(rst_n),
         .start(start),
         .dest_addr(dest_addr),
         .src_addr(src_addr),
@@ -46,37 +45,37 @@ module tb_frame_transmission;
     // Testbench stimulus
     initial begin
         // Initialize inputs
-        rst_n = 0; // Assert reset
         start = 0;
         dest_addr = 48'h123456789ABC;
         src_addr = 48'hABCDEF123456;
         eth_type = 16'h0800;
-        data_in = 32'hDEADBEEF;
 
-        // Apply reset
-        #20 rst_n = 1; // Release reset after 20 time units
+        // Payload: send full 4 bytes for real CRC test
+        data_in = 32'h11223344;
+
+        // Give time before start
+        #20;
 
         // Start frame transmission
         #10 start = 1; // Assert start signal
         #10 start = 0; // Deassert start signal
 
         // Wait for transmission to complete
-        wait (tx_done); // Wait until tx_done is asserted
+        wait (tx_done);
         $display("Transmission complete. Waiting for FSM to return to IDLE...");
 
         // Wait for FSM to return to IDLE
-        wait (state == 4'b0000); // Assuming IDLE state is encoded as 3'b000
+        wait (state == 4'b0000);
         $display("FSM returned to IDLE state.");
 
-        // End the simulation
+        // End simulation
         #50 $finish;
     end
 
     // Monitor tx_out to observe the serialized output
     initial begin
         $monitor("Time: %0d, tx_out: %h, tx_en: %b, tx_done: %b, crc_done: %b, state: %b, next_state: %b",
-          $time, tx_out, tx_en, tx_done,crc_done, state, next_state);
-
+                 $time, tx_out, tx_en, tx_done, crc_done, state, next_state);
     end
 
 endmodule

@@ -26,11 +26,15 @@ module frame_transmission(
     parameter PAYLOAD     = 4'b0110;
     parameter FINALIZE_CRC = 4'b0111;
     parameter CRC         = 4'b1000;
-    parameter DONE        = 4'b0101;
+    parameter DONE        = 4'b1001;
 
     // Internal registers
     reg [2:0] byte_count_internal;
     reg crc_en;
+    reg data_valid;
+    reg crc_done_reg;
+
+
 
     // Wires
     wire [31:0] crc_out;
@@ -73,6 +77,14 @@ module frame_transmission(
             state <= next_state;
         end
     end
+        // STEP 3: Register crc_done
+    always @(negedge clk or negedge rst_n) begin
+        if (!rst_n)
+            crc_done_reg <= 0;
+        else
+            crc_done_reg <= crc_done;
+    end
+
 
     // FSM combinational logic
     always @(posedge clk) begin
@@ -80,10 +92,12 @@ module frame_transmission(
         next_state = state;
         tx_en = 0;
         tx_done = 0;
+       
         
         case (state)
             IDLE: begin
                 tx_out = 8'h00;
+                data_valid = 0;
                 byte_count_internal = 0;
                 if (start) begin
                     next_state = PREAMBLE;
@@ -144,8 +158,14 @@ module frame_transmission(
 
             PAYLOAD: begin
                 crc_en = 1; // Enable CRC calculation
+                data_valid = 1;
+                 tx_en = 1;
                 tx_out = data_in[31 - (byte_count_internal * 8) -: 8];
-                tx_en = 1;
+                $display(">> TX_OUT during PAYLOAD: %h at time %0t", tx_out, $time);
+                $display(">> TX_EN during PAYLOAD: %b at time %0t", tx_en, $time);
+                $display(">> CRC_EN during PAYLOAD: %b at time %0t", crc_en, $time);
+               
+                
                 
                 if (byte_count_internal == 3) begin
                     next_state = FINALIZE_CRC;  // Transition to FINALIZE_CRC state
@@ -157,8 +177,12 @@ module frame_transmission(
 
             FINALIZE_CRC: begin
                 crc_en = 0;             // Disable CRC to finalize
+                data_valid = 0;
                 tx_en = 0;
-                if (crc_done) begin
+                $display(">> CRC_DONE in FINALIZE_CRC: %b at time %0t", crc_done, $time);
+                if (crc_done_reg) begin
+
+                    $display(">> CRC Computed: %h at time %0t", crc_out, $time); // Display computed CRC
                     next_state = CRC;  // Transition to CRC state to transmit the CRC bytes
                     byte_count_internal = 0;  // Reset byte count for CRC transmission
                 end else begin
@@ -170,7 +194,7 @@ module frame_transmission(
             CRC: begin
                 tx_out = crc_out[31 - (byte_count_internal * 8) -: 8];
                 tx_en = 1;
-
+                $display(">> Transmitting CRC Byte: %h at time %0t", tx_out, $time); // Display transmitted CRC byte
                 if (byte_count_internal == 3) begin
                     tx_done = 1;       // Indicate transmission is complete
                     next_state = IDLE; // Transition back to IDLE state

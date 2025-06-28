@@ -1,0 +1,42 @@
+# Compile of frame_transmission.v was successful.
+# Compile of crc_generator.v was successful.
+# Compile of fifo_rx.v was successful.
+# Compile of fifo_tx.v was successful.
+# Compile of tb_frame_transmission.v was successful.
+# Compile of tb_crc_generator.v was successful.
+# Compile of tb_frame_reception.v was successful.
+# Compile of frame_reception.v was successful.
+# 8 compiles, 0 failed with no errors.
+vsim -gui work.tb_frame_reception
+# vsim -gui work.tb_frame_reception 
+# Start time: 13:29:14 on Jun 08,2025
+# Loading work.tb_frame_reception
+# Loading work.frame_reception
+# Loading work.crc_generator
+# ** Warning: (vsim-2685) [TFMPC] - Too few port connections for 'crc_gen_inst'.  Expected 7, found 6.
+#    Time: 0 ps  Iteration: 0  Instance: /tb_frame_reception/uut/crc_gen_inst File: C:/Users/Yaniv/vscodes/ethernet mac contraller/src/frame_reception.v Line: 44
+# ** Warning: (vsim-3722) C:/Users/Yaniv/vscodes/ethernet mac contraller/src/frame_reception.v(44): [TFMPC] - Missing connection for port 'rst_n'.
+add wave -position end  sim:/tb_frame_reception/clk
+add wave -position end  sim:/tb_frame_reception/rst_n
+add wave -position end  sim:/tb_frame_reception/rx_en
+add wave -position end  sim:/tb_frame_reception/rx_data
+add wave -position end  sim:/tb_frame_reception/rx_data_valid
+add wave -position end  sim:/tb_frame_reception/dest_mac
+add wave -position end  sim:/tb_frame_reception/src_mac
+add wave -position end  sim:/tb_frame_reception/eth_type
+add wave -position end  sim:/tb_frame_reception/frame_valid
+add wave -position end  sim:/tb_frame_reception/rx_done
+add wave -position end  sim:/tb_frame_reception/i
+# ** Warning: (vsim-WLF-5000) WLF file currently in use: vsim.wlf
+#           File in use by: Yaniv  Hostname: LAPTOP-U39IDHRF  ProcessID: 24784
+#           Attempting to use alternate WLF file "./wlftb43rav".
+# ** Warning: (vsim-WLF-5001) Could not open WLF file: vsim.wlf
+#           Using alternate file: ./wlftb43rav
+run 1000ns
+#  Frame failed at time 1490
+# ** Note: $finish    : C:/Users/Yaniv/vscodes/ethernet mac contraller/testbench/tb_frame_reception.v(106)
+#    Time: 1500 ps  Iteration: 0  Instance: /tb_frame_reception
+# 1
+# Break in Module tb_frame_reception at C:/Users/Yaniv/vscodes/ethernet mac contraller/testbench/tb_frame_reception.v line 106
+# End time: 15:39:41 on Jun 08,2025, Elapsed time: 2:10:27
+# Errors: 0, Warnings: 6
