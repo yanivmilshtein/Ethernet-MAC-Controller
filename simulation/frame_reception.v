@@ -24,7 +24,7 @@ wire       crc_done;
 wire [31:0] crc_out;
 
 // Payload buffer for 48 bytes of data
-reg [31:0] payload_data; // Buffer for payload data (up to 32 bytes)
+reg [31:0] paylod_buffer:
 
 // crc checking
 reg [31:0] received_crc; // Received CRC value from the frame
@@ -74,7 +74,7 @@ always @(posedge clk) begin
             frame_valid = 0;
 
             // clear all temporary registers
-            payload_data = 0;
+            paylod_buffer = 0;
             dest_mac = 0;
             src_mac = 0;
             eth_type = 0;
@@ -153,7 +153,8 @@ always @(posedge clk) begin
 
         PAYLOAD: begin
             if (rx_en) begin
-                crc_en = 1;
+                data_in    = rx_data;
+                crc_en     = 1;
                 data_valid = 1;
 
                 // Optional: store payload
@@ -162,9 +163,9 @@ always @(posedge clk) begin
                 byte_count = byte_count + 1;
 
                 if (byte_count == 3) begin
-                    next_state = CRC_CAPTURE;
+                    next_state = CRC_VERIFY;
                     byte_count = 0;
-                    crc_en = 0; // Tell CRC module to finalize internally
+                    crc_en     = 0; // Tell CRC module to finalize internally
                 end
             end else begin
                 data_valid = 0;
@@ -185,7 +186,7 @@ always @(posedge clk) begin
 
 
         CRC_COMPARE: begin
-            if (received_crc == crc_out) begin
+            if (rx_crc == crc_out) begin
                 frame_valid <= 1;       // Mark frame as valid
                 $display(">> CRC PASS at time %0t", $time);
             end else begin
@@ -200,11 +201,11 @@ always @(posedge clk) begin
         default: begin
             next_state     <= IDLE;
             byte_count     <= 0;
-            received_crc   <= 32'b0;
+            rx_crc         <= 32'b0;
             dest_mac       <= 48'b0;
             src_mac        <= 48'b0;
             eth_type       <= 16'b0;
-            payload_data   <= 32'b0;
+            payload        <= 32'b0;
             frame_valid    <= 0;
             crc_en         <= 0;
             data_valid     <= 0;

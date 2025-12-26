@@ -1,0 +1,57 @@
+{C:/Users/Yaniv/vscodes/ethernet mac contraller/src/frame_reception.v} {1 {vlog -work work -stats=none {C:/Users/Yaniv/vscodes/ethernet mac contraller/src/frame_reception.v}
+Model Technology ModelSim - Intel FPGA Edition vlog 2020.1 Compiler 2020.02 Feb 28 2020
+-- Compiling module frame_reception
+
+Top level modules:
+	frame_reception
+
+} {} {}} {C:/Users/Yaniv/vscodes/ethernet mac contraller/src/fifo_tx.v} {1 {vlog -work work -stats=none {C:/Users/Yaniv/vscodes/ethernet mac contraller/src/fifo_tx.v}
+Model Technology ModelSim - Intel FPGA Edition vlog 2020.1 Compiler 2020.02 Feb 28 2020
+-- Compiling module fifo_tx
+
+Top level modules:
+	fifo_tx
+
+} {} {}} {C:/Users/Yaniv/vscodes/ethernet mac contraller/testbench/tb_crc_generator.v} {1 {vlog -work work -stats=none {C:/Users/Yaniv/vscodes/ethernet mac contraller/testbench/tb_crc_generator.v}
+Model Technology ModelSim - Intel FPGA Edition vlog 2020.1 Compiler 2020.02 Feb 28 2020
+-- Compiling module tb_crc_generator
+
+Top level modules:
+	tb_crc_generator
+
+} {} {}} {C:/Users/Yaniv/vscodes/ethernet mac contraller/src/frame_transmission.v} {1 {vlog -work work -stats=none {C:/Users/Yaniv/vscodes/ethernet mac contraller/src/frame_transmission.v}
+Model Technology ModelSim - Intel FPGA Edition vlog 2020.1 Compiler 2020.02 Feb 28 2020
+-- Compiling module frame_transmission
+
+Top level modules:
+	frame_transmission
+
+} {} {}} {C:/Users/Yaniv/vscodes/ethernet mac contraller/testbench/tb_frame_reception.v} {1 {vlog -work work -stats=none {C:/Users/Yaniv/vscodes/ethernet mac contraller/testbench/tb_frame_reception.v}
+Model Technology ModelSim - Intel FPGA Edition vlog 2020.1 Compiler 2020.02 Feb 28 2020
+-- Compiling module tb_frame_reception
+
+Top level modules:
+	tb_frame_reception
+
+} {} {}} {C:/Users/Yaniv/vscodes/ethernet mac contraller/testbench/tb_frame_transmission.v} {1 {vlog -work work -stats=none {C:/Users/Yaniv/vscodes/ethernet mac contraller/testbench/tb_frame_transmission.v}
+Model Technology ModelSim - Intel FPGA Edition vlog 2020.1 Compiler 2020.02 Feb 28 2020
+-- Compiling module tb_frame_transmission
+
+Top level modules:
+	tb_frame_transmission
+
+} {} {}} {C:/Users/Yaniv/vscodes/ethernet mac contraller/src/fifo_rx.v} {1 {vlog -work work -stats=none {C:/Users/Yaniv/vscodes/ethernet mac contraller/src/fifo_rx.v}
+Model Technology ModelSim - Intel FPGA Edition vlog 2020.1 Compiler 2020.02 Feb 28 2020
+-- Compiling module fifo_rx
+
+Top level modules:
+	fifo_rx
+
+} {} {}} {C:/Users/Yaniv/vscodes/ethernet mac contraller/src/crc_generator.v} {1 {vlog -work work -stats=none {C:/Users/Yaniv/vscodes/ethernet mac contraller/src/crc_generator.v}
+Model Technology ModelSim - Intel FPGA Edition vlog 2020.1 Compiler 2020.02 Feb 28 2020
+-- Compiling module crc_generator
+
+Top level modules:
+	crc_generator
+
+} {} {}}
