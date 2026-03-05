@@ -461,6 +461,6 @@ Refer to the detailed documentation:
 ---
 
 **Design Status:** ✅ Complete and Ready for Simulation
-**Last Updated:** December 24, 2024
-**Version:** 1.0
+**Last Updated:** 05.03.2026
+**Version:** 1.1
 >>>>>>> mac_controller
