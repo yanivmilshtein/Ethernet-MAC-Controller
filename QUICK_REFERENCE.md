@@ -1,103 +1,276 @@
 # MAC Controller - Quick Reference Card
 
-## At a Glance
+## System Overview
 
 ```
-┌─────────────────────────────────────────────────┐
-│     Ethernet MAC Controller (Top Level)         │
-│                                                   │
-│  Single Clock Domain | Full Duplex | CRC Ready  │
-│                                                   │
-│  24 Signals | 128 bits | ~2-5K gates            │
-└─────────────────────────────────────────────────┘
-```
-
-## RX Path (4 stages)
-```
-PHY Data
-   ↓
-FIFO_RX (buffer 8B)
-   ↓
-Frame_Reception (parse headers)
-   ↓
-CRC_Generator (validate)
-   ↓
-Application (dest_mac, src_mac, eth_type, frame_valid)
-```
-
-## TX Path (4 stages)
-```
-Application (payload + MAC headers)
-   ↓
-FIFO_TX (buffer 16B)
-   ↓
-Frame_Transmission (construct frame)
-   ↓
-CRC_Generator (compute checksum)
-   ↓
-PHY (complete Ethernet frame)
+┌──────────────────────────────────────────────────────────┐
+│      Ethernet MAC Controller - Top Level Module          │
+│                                                            │
+│   IEEE 802.3 Compliant | Full-Duplex | CRC-32         │
+│   100 MHz Clock | 24 Signals | 72-byte frames          │
+│                                                            │
+└──────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Port Quick Reference
+## Data Paths (One-Page View)
 
-### Clock & Reset (2 signals)
-| Port | Direction | Width | Purpose |
-|------|-----------|-------|---------|
-| `clk` | Input | 1 | System clock |
-| `rst_n` | Input | 1 | Active-low reset |
-
-### PHY RX Interface (3 signals) → MAC
-| Port | Direction | Width | Purpose |
-|------|-----------|-------|---------|
-| `rx_en` | Input | 1 | Frame reception enable |
-| `rx_data` | Input | 8 | Incoming byte |
-| `rx_data_valid` | Input | 1 | Byte is valid |
-
-### MAC RX Outputs (5 signals) → Application
-| Port | Direction | Width | Purpose |
-|------|-----------|-------|---------|
-| `dest_mac` | Output | 48 | Destination MAC address |
-| `src_mac` | Output | 48 | Source MAC address |
-| `eth_type` | Output | 16 | Ethernet type/length |
-| `frame_valid` | Output | 1 | CRC validation passed |
-| `rx_done` | Output | 1 | Frame reception complete |
-
-### MAC TX Inputs (6 signals) ← Application
-| Port | Direction | Width | Purpose |
-|------|-----------|-------|---------|
-| `app_tx_data` | Input | 8 | Payload byte |
-| `app_tx_data_valid` | Input | 1 | Byte is valid |
-| `app_tx_start` | Input | 1 | Initiate transmission |
-| `app_tx_dest_mac` | Input | 48 | Destination MAC |
-| `app_tx_src_mac` | Input | 48 | Source MAC |
-| `app_tx_eth_type` | Input | 16 | Ethernet type |
-
-### PHY TX Interface (3 signals) MAC →
-| Port | Direction | Width | Purpose |
-|------|-----------|-------|---------|
-| `tx_en` | Output | 1 | Transmission enable |
-| `tx_data` | Output | 8 | Outgoing byte |
-| `tx_data_valid` | Output | 1 | Byte is valid |
-
-### Completion Flags (1 signal)
-| Port | Direction | Width | Purpose |
-|------|-----------|-------|---------|
-| `tx_done` | Output | 1 | Transmission complete |
-
-### Debug Outputs (5 signals - optional)
-| Port | Direction | Width | Purpose |
-|------|-----------|-------|---------|
-| `tx_state` | Output | 4 | TX FSM state |
-| `tx_fifo_full` | Output | 1 | TX buffer full |
-| `tx_fifo_empty` | Output | 1 | TX buffer empty |
-| `rx_fifo_full` | Output | 1 | RX buffer full |
-| `rx_fifo_empty` | Output | 1 | RX buffer empty |
+```
+RX PATH                          TX PATH
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PHY Layer                        Application
+(rx_en, rx_data, rx_data_valid)  (app_tx_data, app_tx_dest_mac, ...)
+         │                                  │
+         ▼                                  ▼
+  ┌────────────┐                 ┌────────────┐
+  │ FIFO_RX    │                 │ FIFO_TX    │
+  │ (8 bytes)  │                 │ (16 bytes) │
+  └────────────┘                 └────────────┘
+         │                                  │
+         ▼                                  ▼
+  ┌────────────────────┐          ┌────────────────────┐
+  │ Frame_Reception    │          │ Frame_Transmission │
+  │ (Parse headers)    │          │ (Build frame)      │
+  │ ┌──────────────┐   │          │ ┌──────────────┐   │
+  │ │ crc_validate │   │          │ │ crc_generate │   │
+  │ └──────────────┘   │          │ └──────────────┘   │
+  └────────────────────┘          └────────────────────┘
+         │                                  │
+         ▼                                  ▼
+  Application                        PHY Layer
+  (dest_mac, src_mac,               (tx_en, tx_data,
+   eth_type, frame_valid)            tx_data_valid)
+```
 
 ---
 
-## Signal Meanings
+## Port Summary (24 Signals Total)
+
+### Category 1: Clock & Reset (2)
+| Signal | Width | Direction | Description |
+|--------|-------|-----------|-------------|
+| `clk` | 1 | Input | System clock (100 MHz) |
+| `rst_n` | 1 | Input | Asynchronous active-low reset |
+
+### Category 2: RX from PHY (3)
+| Signal | Width | Direction | Description |
+|--------|-------|-----------|-------------|
+| `rx_en` | 1 | Input | Frame reception enabled |
+| `rx_data` | 8 | Input | Incoming frame byte |
+| `rx_data_valid` | 1 | Input | Byte is valid |
+
+### Category 3: RX to Application (5)
+| Signal | Width | Direction | Description |
+|--------|-------|-----------|-------------|
+| `dest_mac` | 48 | Output | Parsed destination MAC address |
+| `src_mac` | 48 | Output | Parsed source MAC address |
+| `eth_type` | 16 | Output | Parsed EtherType/Length field |
+| `frame_valid` | 1 | Output | CRC validation result (1=pass) |
+| `rx_done` | 1 | Output | Frame reception complete |
+
+### Category 4: TX from Application (6)
+| Signal | Width | Direction | Description |
+|--------|-------|-----------|-------------|
+| `app_tx_data` | 8 | Input | Payload byte |
+| `app_tx_data_valid` | 1 | Input | Payload byte is valid |
+| `app_tx_start` | 1 | Input | Initiate transmission (pulse) |
+| `app_tx_dest_mac` | 48 | Input | Destination MAC address |
+| `app_tx_src_mac` | 48 | Input | Source MAC address |
+| `app_tx_eth_type` | 16 | Input | EtherType field (e.g., 0x0800) |
+
+### Category 5: TX to PHY (3)
+| Signal | Width | Direction | Description |
+|--------|-------|-----------|-------------|
+| `tx_en` | 1 | Output | Transmission active |
+| `tx_data` | 8 | Output | Outgoing frame byte |
+| `tx_data_valid` | 1 | Output | Byte is valid |
+
+### Category 6: Completion Flags (1)
+| Signal | Width | Direction | Description |
+|--------|-------|-----------|-------------|
+| `tx_done` | 1 | Output | Transmission complete |
+
+### Category 7: Debug Outputs (4)
+| Signal | Width | Direction | Description |
+|--------|-------|-----------|-------------|
+| `tx_state` | 4 | Output | TX FSM state (IDLE=0, PREAMBLE=1, ...) |
+| `tx_fifo_full` | 1 | Output | TX FIFO full flag |
+| `tx_fifo_empty` | 1 | Output | TX FIFO empty flag |
+| `rx_fifo_full` | 1 | Output | RX FIFO full flag |
+| `rx_fifo_empty` | 1 | Output | RX FIFO empty flag |
+
+---
+
+## Frame Structure Quick Reference
+
+```
+Byte     Content               Example
+────────────────────────────────────────────
+0-6      Preamble              0xAA (7 bytes)
+7        SFD                   0xAB
+8-13     Destination MAC       0x00:11:22:33:44:55
+14-19    Source MAC            0xAA:BB:CC:DD:EE:FF
+20-21    EtherType             0x0800 (IPv4)
+22-67    Payload               46 bytes minimum
+68-71    CRC-32                4 bytes
+────────────────────────────────────────────
+TOTAL    Frame Size            72 bytes (minimum)
+```
+
+---
+
+## Typical Usage Sequence
+
+### TX Example
+```verilog
+// Step 1: Setup frame parameters
+app_tx_dest_mac  = 48'h001122334455;
+app_tx_src_mac   = 48'hAABBCCDDEEFF;
+app_tx_eth_type  = 16'h0800;
+
+// Step 2: Fill payload (46 bytes minimum)
+for (i = 0; i < 46; i = i + 1) begin
+    @(posedge clk);
+    app_tx_data = payload_byte[i];
+    app_tx_data_valid = 1'b1;
+end
+app_tx_data_valid = 1'b0;
+
+// Step 3: Pulse start signal
+@(posedge clk);
+app_tx_start = 1'b1;
+@(posedge clk);
+app_tx_start = 1'b0;
+
+// Step 4: Wait for completion
+wait (tx_done == 1'b1);
+```
+
+### RX Example
+```verilog
+// Step 1: Inject frame bytes
+for (i = 0; i < frame_size; i = i + 1) begin
+    @(posedge clk);
+    rx_data = frame[i];
+    rx_data_valid = 1'b1;
+    rx_en = 1'b1;
+end
+rx_data_valid = 1'b0;
+rx_en = 1'b0;
+
+// Step 2: Wait for parsing (300+ cycles)
+wait_cycles(300);
+
+// Step 3: Check results
+if (frame_valid && rx_done) begin
+    $display("Dest: %012h", dest_mac);
+    $display("Src:  %012h", src_mac);
+    $display("Type: %04h", eth_type);
+end
+```
+
+---
+
+## TX FSM States
+
+| State | Code | Sequence | Description |
+|-------|------|----------|-------------|
+| IDLE | 0x0 | → | Waiting for app_tx_start pulse |
+| PREAMBLE | 0x1 | → | Transmit 7 × 0xAA bytes |
+| SFD | 0x2 | → | Transmit 1 × 0xAB byte |
+| DEST_ADDR | 0x3 | → | Transmit 6 destination MAC bytes |
+| SRC_ADDR | 0x4 | → | Transmit 6 source MAC bytes |
+| ETH_TYPE | 0x5 | → | Transmit 2 EtherType bytes |
+| PAYLOAD | 0x6 | → | Transmit 46+ payload bytes from FIFO |
+| FINALIZE_CRC | 0x7 | → | Compute CRC-32 checksum |
+| CRC_TX | 0x8 | → | Transmit 4 CRC bytes, then IDLE |
+
+---
+
+## Key Design Features
+
+| Feature | Value | Benefit |
+|---------|-------|---------|
+| **Clock Frequency** | 100 MHz (10 ns) | High-speed operation |
+| **Full Duplex** | Simultaneous RX/TX | Bidirectional communication |
+| **CRC Validation** | IEEE 802.3 CRC-32 | Error detection |
+| **RX Buffer Size** | 8 bytes | Handles PHY burst rates |
+| **TX Buffer Size** | 16 bytes | Decouples app timing |
+| **Preamble** | 7 × 0xAA | Standard Ethernet sync |
+| **Min Frame Size** | 72 bytes | IEEE 802.3 compliance |
+| **Max Frame Size** | Unlimited | With streaming payload |
+
+---
+
+## Common Signal States
+
+### RX Reception Complete
+```
+Condition: rx_done == 1
+├─ dest_mac: valid (stable)
+├─ src_mac: valid (stable)
+├─ eth_type: valid (stable)
+├─ frame_valid: 1 = CRC OK, 0 = CRC failed
+└─ rx_fifo: should be empty
+```
+
+### TX Transmission Complete
+```
+Condition: tx_done == 1
+├─ tx_en: 0 (not transmitting)
+├─ tx_data_valid: 0
+├─ tx_fifo_empty: 1 (FIFO depleted)
+└─ tx_state: IDLE (0x0)
+```
+
+---
+
+## Debugging Checklist
+
+- [ ] Clock period is 10 ns (100 MHz)
+- [ ] Reset (rst_n) is properly released
+- [ ] app_tx_start is a one-cycle pulse
+- [ ] app_tx_dest_mac/src_mac/eth_type set before transmission
+- [ ] Payload FIFO filled before app_tx_start pulse
+- [ ] For RX: Wait ≥300 cycles after injecting complete frame
+- [ ] Check tx_state progression (0→1→2→3→4→5→6→7→8→0)
+- [ ] Monitor rx_fifo_empty/full for data flow issues
+- [ ] Verify CRC in frame matches expected residue
+- [ ] Confirm frame_valid = 1 when RX completes
+
+---
+
+## Reference Links
+
+- [README.md](README.md) - Project overview & architecture
+- [TESTING_GUIDE.md](TESTING_GUIDE.md) - Detailed test procedures
+- [SIGNAL_CONNECTIONS.md](SIGNAL_CONNECTIONS.md) - Complete signal reference
+- [MAC_CONTROLLER_DESIGN.md](MAC_CONTROLLER_DESIGN.md) - Detailed design documentation
+
+---
+
+## Test Output Summary
+
+The `tb_mac_controller.v` testbench produces:
+
+**Test 1 Output:** 72-byte frame with byte-by-byte display showing:
+```
+[Byte] [Value] [ASCII] [Frame Structure]
+[  0] 0xAA  '«'    [Preamble byte 0]
+...
+[ 71] 0xXX  'x'    [CRC byte 3]
+Total frame size: 72 bytes
+```
+
+**Test 2 Output:** Extracted headers with verification:
+```
+Destination MAC: 0x001122334455 (Expected: 0x001122334455, Match: ✓ YES)
+Source MAC: 0xAABBCCDDEEFF (Expected: 0xAABBCCDDEEFF, Match: ✓ YES)
+EtherType: 0x0800 (Expected: 0x0800, Match: ✓ YES)
+Frame Valid: 1
+RX Done: 1
+```
 
 ### RX Control Signals (Internal)
 ```

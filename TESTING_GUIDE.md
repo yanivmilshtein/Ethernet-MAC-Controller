@@ -1,103 +1,291 @@
-# MAC Controller - Implementation & Testing Guide
+# MAC Controller - Testing Guide
 
-## Quick Start Summary
+## Quick Start
 
-The `mac_controller` is fully integrated with all submodules. Here's what's been implemented:
+Run the 2-test focused testbench in ModelSim:
 
-### ✅ Completed Integration
+```bash
+cd Ethernet-MAC-Controller
+vsim -do run.do
+```
 
-1. **Module Connections** - All submodules properly instantiated:
-   - ✓ FIFO_RX → Frame_Reception → CRC_Generator (RX)
-   - ✓ FIFO_TX → Frame_Transmission → CRC_Generator (TX)
-
-2. **Signal Routing** - Complete end-to-end paths:
-   - ✓ RX: PHY → FIFO → Parser → Headers (to Application)
-   - ✓ TX: Application → FIFO → Frame Builder → PHY
-
-3. **Control Logic** - Intelligent gate signals:
-   - ✓ TX FIFO read only during PAYLOAD state
-   - ✓ CRC enable/disable synchronized with frame boundaries
-   - ✓ Proper full/empty flag handling
-
-4. **Debug Outputs** - Visibility for verification:
-   - ✓ TX state output for monitoring FSM
-   - ✓ FIFO flags for occupancy tracking
+**Expected Output:** Two sequential tests (TX then RX) with detailed FIFO status and frame structure logging.
 
 ---
 
-## Data Sheet Summary
+## Testbench Architecture
 
-### Port Count
-- **Inputs:** 11
-- **Outputs:** 13
-- **Total Signals:** 24
+**File:** `testbench/tb_mac_controller.v`
 
-### Timing Characteristics
-- **Clock:** Single clock domain (synchronous design)
-- **Reset:** Asynchronous active-low
-- **Latency:** Variable (depends on frame content)
+The testbench contains exactly **2 focused tests**:
 
-### Memory Usage
-- **FIFO_RX:** 8 × 8-bit = 64 bits
-- **FIFO_TX:** 16 × 8-bit = 128 bits
-- **Total:** 192 bits (24 bytes)
-
-### Supported Frame Sizes
-- **Minimum:** 15 bytes (preamble + SFD + headers)
-- **Maximum:** Determined by payload buffering (unlimited with streaming)
-
----
-
-## Implementation Checklist
-
-### Phase 1: Basic Connectivity
-- [ ] Instantiate mac_controller module
-- [ ] Connect clock and reset (mandatory)
-- [ ] Connect PHY RX interface (rx_en, rx_data, rx_data_valid)
-- [ ] Connect PHY TX interface (tx_en, tx_data, tx_data_valid)
-
-### Phase 2: RX Application Interface
-- [ ] Connect dest_mac output to application
-- [ ] Connect src_mac output to application
-- [ ] Connect eth_type output to application
-- [ ] Monitor frame_valid for CRC validation
-- [ ] Monitor rx_done for frame completion
-
-### Phase 3: TX Application Interface
-- [ ] Connect app_tx_data input (payload)
-- [ ] Connect app_tx_data_valid input (valid byte)
-- [ ] Connect app_tx_start input (initiate transmission)
-- [ ] Connect app_tx_dest_mac input (destination)
-- [ ] Connect app_tx_src_mac input (source)
-- [ ] Connect app_tx_eth_type input (frame type)
-- [ ] Monitor tx_done for transmission completion
-
-### Phase 4: Debugging
-- [ ] Connect tx_state to logic analyzer (optional)
-- [ ] Connect FIFO flags to monitor buffer occupancy
-- [ ] Verify all signals on scope/logic analyzer
+```
+┌──────────────────────────────────────────────────────────────┐
+│                     Main Test Sequence                        │
+├──────────────────────────────────────────────────────────────┤
+│                                                               │
+│  TEST 1: TX PATH (Frame Transmission)                        │
+│  ├─ Fill payload FIFO with 46 bytes                         │
+│  ├─ Initiate frame transmission                              │
+│  ├─ Capture frame output byte-by-byte                        │
+│  └─ Display frame structure with annotations                │
+│                                                               │
+│  [IDLE: 10 cycles]                                           │
+│                                                               │
+│  TEST 2: RX PATH (Frame Reception)                           │
+│  ├─ Inject captured frame from Test 1                        │
+│  ├─ Feed bytes into RX FIFO                                  │
+│  ├─ Wait for Frame_Reception parsing                         │
+│  └─ Verify extracted headers match original                 │
+│                                                               │
+└──────────────────────────────────────────────────────────────┘
+```
 
 ---
 
-## RX Path Detailed Walkthrough
+## Test 1: TX Path (Frame Transmission)
 
-### Step 1: Frame Arrival at PHY
+### Purpose
+Validate that the MAC controller correctly transmits an Ethernet frame from application layer to PHY layer.
+
+### Test Sequence
+
+**Step 1: Setup Frame Parameters**
 ```verilog
-// Simulate frame: dest=112233445566, src=aabbccddeeff, type=0800, payload=0x12345678
-
-rx_en = 1;              // Frame reception active
-rx_data_valid = 1;
-rx_data = 8'hAA;        // Preamble byte 1
+app_tx_dest_mac  = 48'h001122334455;   // Destination: 00:11:22:33:44:55
+app_tx_src_mac   = 48'hAABBCCDDEEFF;   // Source:      AA:BB:CC:DD:EE:FF
+app_tx_eth_type  = 16'h0800;           // EtherType:   IPv4
 ```
 
-### Step 2: FIFO_RX Stores Data
-```
-FIFO_RX write_enable = rx_en & rx_data_valid = 1
-fifo_mem[0] = 8'hAA
-```
-
-### Step 3: Frame_Reception Processes
+**Step 2: Fill Payload FIFO**
 ```verilog
+for (i = 0; i < 46; i = i + 1) begin   // Minimum payload: 46 bytes
+    @(posedge clk);
+    app_tx_data = i + 8'h41;            // Pattern: 0x41, 0x42, 0x43, ...
+    app_tx_data_valid = 1'b1;           // Mark byte as valid
+end
+app_tx_data_valid = 1'b0;               // Done writing
+```
+
+FIFO status displayed after every 10 bytes:
+```
+[10-19] bytes written, FIFO Full: 0, Empty: 0
+[20-29] bytes written, FIFO Full: 0, Empty: 0
+[30-39] bytes written, FIFO Full: 0, Empty: 0
+[40-45] bytes written, FIFO Full: 0, Empty: 0
+```
+
+**Step 3: Initiate Transmission**
+```verilog
+wait_cycles(5);                          // Wait 5 clock cycles
+app_tx_start = 1'b1;
+@(posedge clk);
+app_tx_start = 1'b0;                     // Pulse the start signal
+```
+
+**Step 4: Capture Frame Output**
+Frame is transmitted byte-by-byte with structure annotations:
+
+```
+  [Byte] [Value] [ASCII] [Frame Structure]
+  ─────────────────────────────────────────
+  [  0] 0xAA  '«'    [Preamble byte 0]
+  [  1] 0xAA  '«'    [Preamble byte 1]
+  [  2] 0xAA  '«'    [Preamble byte 2]
+  [  3] 0xAA  '«'    [Preamble byte 3]
+  [  4] 0xAA  '«'    [Preamble byte 4]
+  [  5] 0xAA  '«'    [Preamble byte 5]
+  [  6] 0xAA  '«'    [Preamble byte 6]
+  [  7] 0xAB  '«'    [SFD (Start Frame Delimiter)]
+  [  8] 0x00        [Destination MAC byte 0]
+  [  9] 0x11        [Destination MAC byte 1]
+  [ 10] 0x22        [Destination MAC byte 2]
+  [ 11] 0x33        [Destination MAC byte 3]
+  [ 12] 0x44        [Destination MAC byte 4]
+  [ 13] 0x55        [Destination MAC byte 5]
+  [ 14] 0xAA        [Source MAC byte 0]
+  [ 15] 0xBB        [Source MAC byte 1]
+  [ 16] 0xCC        [Source MAC byte 2]
+  [ 17] 0xDD        [Source MAC byte 3]
+  [ 18] 0xEE        [Source MAC byte 4]
+  [ 19] 0xFF        [Source MAC byte 5]
+  [ 20] 0x08        [EtherType byte 0]
+  [ 21] 0x00        [EtherType byte 1]
+  [ 22-67] 0xAA-0xAE [Payload bytes 0-45]
+  [ 68-71] 0xXX...  [CRC bytes 0-3]
+  ─────────────────────────────────────────
+  └─ Total frame size: 72 bytes
+```
+
+### Expected Results
+
+✓ Frame starts with 7 bytes of 0xAA preamble
+✓ Byte 7 is 0xAB (SFD)
+✓ Bytes 8-13 match destination MAC (0x001122334455)
+✓ Bytes 14-19 match source MAC (0xAABBCCDDEEFF)
+✓ Bytes 20-21 match EtherType (0x0800)
+✓ Bytes 22-67 match payload pattern (0x41-0xAE)
+✓ Bytes 68-71 are CRC-32 value
+✓ Total frame: 72 bytes
+
+---
+
+## Test 2: RX Path (Frame Reception)
+
+### Purpose
+Validate that the MAC controller correctly receives and parses an Ethernet frame from PHY layer to application layer.
+
+### Test Sequence
+
+**Step 1: Prepare Frame for Injection**
+```verilog
+// Use frame captured in Test 1
+$display("Frame size: %d bytes", tx_frame_count);
+```
+
+**Step 2: Inject Frame into RX FIFO**
+```verilog
+rx_en = 1'b1;                              // Enable RX
+
+for (i = 0; i < tx_frame_count; i = i + 1) begin
+    @(posedge clk);
+    rx_data = captured_tx_frame[i];         // Feed captured bytes
+    rx_data_valid = 1'b1;                   // Mark as valid
+end
+
+@(posedge clk);
+rx_data_valid = 1'b0;
+rx_en = 1'b0;                               // Done injecting
+```
+
+FIFO status displayed for each byte:
+```
+  [Byte] [Value] [ASCII] [FIFO Status]
+  ──────────────────────────────────────
+  [  0] 0xAA  '«'    Full: 0, Empty: 0
+  [  1] 0xAA  '«'    Full: 0, Empty: 0
+  ...
+  [ 71] 0xXX  'x'    Full: 0, Empty: 0
+  ──────────────────────────────────────
+```
+
+**Step 3: Wait for Frame Processing**
+```verilog
+wait_cycles(300);  // Wait for Frame_Reception to parse entire frame
+```
+
+Frame_Reception FSM processes:
+- Preamble detection
+- SFD detection
+- Destination MAC extraction
+- Source MAC extraction
+- EtherType extraction
+- Payload processing
+- CRC verification
+
+**Step 4: Display Parsed Frame Information**
+
+```
+  ┌─ Destination MAC Address
+  │   0x001122334455
+  │   Expected: 0x001122334455
+  │   Match: ✓ YES
+  ├─ Source MAC Address
+  │   0xAABBCCDDEEFF
+  │   Expected: 0xAABBCCDDEEFF
+  │   Match: ✓ YES
+  ├─ EtherType/Length
+  │   0x0800
+  │   Expected: 0x0800
+  │   Match: ✓ YES
+  ├─ Frame Valid (CRC Check)
+  │   1
+  └─ RX Done Flag
+      1
+```
+
+### Expected Results
+
+✓ Destination MAC: 0x001122334455 (matches Test 1)
+✓ Source MAC: 0xAABBCCDDEEFF (matches Test 1)
+✓ EtherType: 0x0800 (matches Test 1)
+✓ Frame Valid: 1 (CRC verification passed)
+✓ RX Done: 1 (frame reception complete)
+
+---
+
+## Frame Structure Reference
+
+Ethernet frame format (IEEE 802.3):
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ Preamble │ SFD │ Dest MAC │ Src MAC │ EtherType │ Payload │ CRC │
+│ (7 bytes)│(1B) │ (6 bytes)│(6 bytes)│  (2 bytes) │(46-1500)│(4B) │
+├─────────────────────────────────────────────────────────────────┤
+│ 0x00-0x06│ 0x07│ 0x08-0x0D│0x0E-0x13│  0x14-0x15 │0x16-... │Last │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Frame Details:**
+- Preamble: 7 bytes of 0xAA (synchronization)
+- SFD: 1 byte of 0xAB (frame delimiter)
+- Destination MAC: 6 bytes
+- Source MAC: 6 bytes
+- EtherType: 2 bytes (0x0800 = IPv4)
+- Payload: 46-1500 bytes
+- CRC: 4 bytes (CRC-32)
+- Minimum total: 64 bytes
+- Test frame: 72 bytes (7+1+6+6+2+46+4)
+
+---
+
+## Key Signals During Testing
+
+### TX Path Monitoring
+| Signal | Purpose | Expected during TX |
+|--------|---------|-------------------|
+| `tx_en` | Frame transmission active | 1 for 72 cycles |
+| `tx_data[7:0]` | Current frame byte | Frame bytes (0xAA...0xXX) |
+| `tx_data_valid` | Byte is valid | 1 during transmission |
+| `tx_done` | Transmission complete | 1 at end, 0 otherwise |
+| `tx_fifo_empty` | TX FIFO depleted | Transition 0→1 at end |
+| `tx_state[3:0]` | TX FSM state | IDLE→PREAMBLE→...→IDLE |
+
+### RX Path Monitoring
+| Signal | Purpose | Expected during RX |
+|--------|---------|-------------------|
+| `rx_en` | Frame reception enabled | 1 during injection |
+| `rx_data[7:0]` | Current frame byte | Frame bytes from Test 1 |
+| `rx_data_valid` | Byte is valid | 1 during injection |
+| `frame_valid` | CRC check passed | 1 after parsing |
+| `rx_done` | Reception complete | 1 after 300 cycles |
+| `dest_mac[47:0]` | Parsed destination | 0x001122334455 |
+
+---
+
+## Debugging Tips
+
+### If Test 1 Fails (TX Path)
+1. Check that `app_tx_data_valid` pulses correctly
+2. Verify `tx_en` goes high and stays high for 72 cycles
+3. Monitor `tx_state` output to see FSM progression
+4. Check FIFO read enable timing
+5. Capture frame to waveform and inspect byte sequence
+
+### If Test 2 Fails (RX Path)
+1. Verify frame bytes are correctly stored in `captured_tx_frame[]`
+2. Check that `rx_data_valid` is asserted for each byte
+3. Monitor RX FIFO level during injection
+4. Verify Frame_Reception FSM reaches PARSE state
+5. Check CRC computation result
+
+### General Debug Strategy
+1. Run single test at a time (comment out other test)
+2. Add `$monitor` statements for signal tracking
+3. Increase `wait_cycles()` between tests
+4. Use waveform viewer to inspect signals frame-by-frame
+5. Verify clock period (should be 10ns = 100MHz)
 // FSM reads from FIFO
 rx_fifo_data_out = 8'hAA    // FIFO output
 rx_frame_data_valid = ~rx_fifo_empty & rx_en = 1

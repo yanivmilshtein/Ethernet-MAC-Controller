@@ -1,103 +1,147 @@
+# Ethernet MAC Controller - Complete System
 
-# MAC Controller Integration - Executive Summary
-
-
-
-The Ethernet MAC Controller has been fully designed and integrated as a top-level module that manages both RX (receive) and TX (transmit) Ethernet frame handling.
+The Ethernet MAC Controller is a synthesizable Verilog implementation of an IEEE 802.3 compliant Media Access Control (MAC) layer. It provides full-duplex Ethernet frame transmission and reception with integrated CRC-32 validation.
 
 ---
 
-## What's Been Done
+## Project Structure
 
-### 1. ✅ Module Architecture Designed
-- **RX Path:** PHY → FIFO_RX → Frame_Reception → CRC_Validator → Application
-- **TX Path:** Application → FIFO_TX → Frame_Transmission → CRC_Generator → PHY
-- **Control Logic:** Intelligent gating of signals based on FSM states
-
-### 2. ✅ mac_controller.v Updated
-**File:** [src/mac_controller.v](src/mac_controller.v)
-
-**Key Changes:**
-- Added application-level TX inputs for MAC addresses and Ethernet type
-  - `app_tx_dest_mac[47:0]` - Destination MAC
-  - `app_tx_src_mac[47:0]` - Source MAC
-  - `app_tx_eth_type[15:0]` - Ethernet frame type
-
-- Fixed frame_transmission connections to receive MAC headers from application
-  - Was: Empty port connections
-  - Now: Properly connected to `app_tx_dest_mac`, `app_tx_src_mac`, `app_tx_eth_type`
-
-- Implemented smart TX FIFO read control
-  - FIFO only reads when `frame_transmission` is in PAYLOAD state
-  - Prevents stale data transmission
-
-- Added debug outputs
-  - `tx_state[3:0]` - Current TX FSM state
-  - `tx_fifo_full/empty` - TX FIFO status
-  - `rx_fifo_full/empty` - RX FIFO status
-
-### 3. ✅ Control Flow Implementation
-**RX Control:**
 ```
-rx_fifo_wr_en       = rx_en & rx_data_valid
-rx_fifo_rd_en       = rx_en & ~rx_fifo_empty
-rx_frame_data_valid = ~rx_fifo_empty & rx_en
+Ethernet-MAC-Controller/
+├── src/                           # Core HDL modules
+│   ├── mac_controller.v           # Top-level orchestrator (24 signals)
+│   ├── frame_transmission.v       # TX frame builder FSM
+│   ├── frame_reception.v          # RX frame parser FSM
+│   ├── fifo_tx.v                  # TX payload buffer (16×8)
+│   ├── fifo_rx.v                  # RX data buffer (8×8)
+│   └── crc_generator.v            # CRC-32 engine (shared RX/TX)
+├── testbench/                     # Simulation test files
+│   ├── tb_mac_controller.v        # Main testbench (2 focused tests)
+│   ├── tb_frame_transmission.v    # TX module test
+│   ├── tb_frame_reception.v       # RX module test
+│   ├── tb_fifo_rx.v               # RX FIFO test
+│   ├── tb_fifo_tx.v               # TX FIFO test
+│   └── tb_crc_generator.v         # CRC validation test
+├── QUICK_REFERENCE.md             # Signal reference card
+├── TESTING_GUIDE.md               # Test procedures & examples
+├── SIGNAL_CONNECTIONS.md          # Connection diagrams
+└── run.do                          # ModelSim simulation script
 ```
-
-**TX Control:**
-```
-tx_fifo_wr_en = app_tx_data_valid & ~tx_fifo_full
-tx_fifo_rd_en = (frame_tx_state == PAYLOAD) & ~tx_fifo_empty
-```
-
-### 4. ✅ Documentation Created
-
-#### [MAC_CONTROLLER_DESIGN.md](MAC_CONTROLLER_DESIGN.md)
-Complete architectural documentation including:
-- Block diagrams
-- Data flow descriptions
-- Signal definitions
-- State machines
-- Design features and considerations
-- Example instantiation code
-- Testing strategy
-
-#### [SIGNAL_CONNECTIONS.md](SIGNAL_CONNECTIONS.md)
-Detailed signal connection reference including:
-- Complete signal flow diagram
-- Control flow summary
-- Frame structure definition
-- TX state encoding
-- Signal direction convention
-- Timing examples
-- Key signal reference table
-
-#### [TESTING_GUIDE.md](TESTING_GUIDE.md)
-Comprehensive testing and implementation guide including:
-- Implementation checklist
-- Detailed walkthroughs (RX & TX paths)
-- State machine flow diagrams
-- Verification test cases
-- Debug tips
-- Performance metrics
 
 ---
 
-## Key Features
+## System Architecture
 
-### 🔄 Bidirectional Streaming
-- Full-duplex operation: RX and TX can operate simultaneously
-- Buffered data paths prevent timing interference
+### Data Paths
 
-### 🛡️ Data Integrity
-- CRC-32 validation on received frames
-- CRC-32 generation on transmitted frames
-- Prevents corrupted data propagation
+**RX Path (Receive):**
+```
+PHY Layer
+   ↓ (rx_en, rx_data[7:0], rx_data_valid)
+FIFO_RX (8-byte circular buffer)
+   ↓ (rx_fifo_data_out[7:0], rx_frame_data_valid)
+Frame_Reception (parse Ethernet frame)
+   ↓ (dest_mac[47:0], src_mac[47:0], eth_type[15:0])
+Application Layer
+```
 
-### 📊 Smart Buffering
-- RX FIFO: 8 bytes (accommodates PHY bursts)
-- TX FIFO: 16 bytes (decouples application timing)
-- Full/empty flags prevent data loss
+**TX Path (Transmit):**
+```
+Application Layer
+   ↓ (app_tx_data[7:0], app_tx_dest_mac[47:0], app_tx_src_mac[47:0], app_tx_eth_type[15:0])
+FIFO_TX (16-byte circular buffer)
+   ↓ (tx_fifo_data_out[7:0], payload_fifo_rd_en)
+Frame_Transmission (construct Ethernet frame)
+   ↓ (tx_data[7:0], tx_en, tx_data_valid)
+PHY Layer
+```
+
+**Shared Components:**
+- CRC_Generator: Used for both RX validation and TX computation
+- Clock Domain: Single 100 MHz clock, synchronous design
+- Reset: Asynchronous active-low reset
+
+### Key Features
+
+| Feature | Capability |
+|---------|-----------|
+| **Clock Frequency** | 100 MHz (10 ns period) |
+| **Frame Size** | 64 - 1518 bytes (IEEE 802.3) |
+| **Minimum Payload** | 46 bytes |
+| **CRC Algorithm** | CRC-32 (Poly: 0x04C11DB7) |
+| **Duplex Mode** | Full-duplex (RX & TX simultaneous) |
+| **Buffering** | RX: 8 bytes, TX: 16 bytes |
+| **Signal Count** | 24 total (6 clk/reset + 3 RX input + 5 RX output + 6 TX input + 3 TX output + 1 done) |
+
+---
+
+## Testbench Overview
+
+**File:** [testbench/tb_mac_controller.v](testbench/tb_mac_controller.v)
+
+The main testbench contains exactly **2 focused tests**:
+
+### Test 1: TX Path
+- **Purpose:** Validate transmission pipeline (application → PHY)
+- **Procedure:**
+  1. Set destination/source MAC and EtherType
+  2. Fill payload FIFO with test data (46 bytes)
+  3. Initiate frame transmission
+  4. Capture complete frame bytes to array
+  5. Display frame structure with byte-by-byte decoding
+- **Output:** 72-byte complete Ethernet frame (preamble + SFD + headers + payload + CRC)
+- **Verification:** Frame structure and byte sequence correct
+
+### Test 2: RX Path  
+- **Purpose:** Validate reception pipeline (PHY → application)
+- **Procedure:**
+  1. Inject captured frame from Test 1 into RX FIFO
+  2. Feed frame bytes to Frame_Reception module
+  3. Wait for frame parsing complete
+  4. Verify extracted headers match injected frame
+- **Outputs:** dest_mac, src_mac, eth_type, frame_valid
+- **Verification:** Parsed headers match original values
+
+Both tests run sequentially with 10-cycle idle period between them. Each test includes detailed FIFO status logging and frame structure annotations.
+
+---
+
+## Module Interconnection
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    mac_controller.v                             │
+│  (24 signals: clock, reset, PHY I/F, app I/F, debug)           │
+│                                                                   │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐           │
+│  │  fifo_rx.v   │  │  fifo_tx.v   │  │ crc_gen.v    │           │
+│  │  (8×8 FIFO)  │  │  (16×8 FIFO) │  │ (CRC-32)     │           │
+│  └──────────────┘  └──────────────┘  └──────────────┘           │
+│         ▲                  ▲                   ▲                  │
+│         │                  │                   │                  │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │  frame_reception.v              frame_transmission.v     │   │
+│  │  (RX FSM: parse frame)          (TX FSM: build frame)    │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│         ▲                                       ▲                  │
+│         │                                       │                  │
+│      [PHY RX]                               [PHY TX]              │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Simulation & Testing
+
+All testing is performed using ModelSim. See [TESTING_GUIDE.md](TESTING_GUIDE.md) for detailed procedures.
+
+**Quick Start:**
+```bash
+cd Ethernet-MAC-Controller
+vsim -do run.do
+```
+
+This runs the 2-test testbench with full logging and signal display.
 
 ### 🔗 Complete Frame Handling
 - Preamble generation (7 × 0xAA)
