@@ -5,6 +5,22 @@ The `mac_controller` is the top-level integration module that manages both RX (r
 - **PHY Layer** (below) - Raw Ethernet frames
 - **Application Layer** (above) - Payload data and MAC/Ethernet parameters
 
+This document provides complete technical architecture documentation. For quick reference, see [QUICK_REFERENCE.md](QUICK_REFERENCE.md). For testing procedures, see [TESTING_GUIDE.md](TESTING_GUIDE.md).
+
+---
+
+## Current Status
+
+| Aspect | Status |
+|--------|--------|
+| **Implementation** | ✅ Complete (182 lines) |
+| **Integration** | ✅ All submodules connected |
+| **Testbench** | ✅ 2-test focused suite (400+ lines) |
+| **Test 1: TX Path** | ✅ Validates frame transmission |
+| **Test 2: RX Path** | ✅ Validates frame reception |
+| **Documentation** | ✅ Complete (2,500+ lines) |
+| **Compilation** | ✅ No errors (exit code 0) |
+
 ---
 
 ## Architecture
@@ -345,21 +361,77 @@ mac_controller mac_inst (
 
 ## Testing Strategy
 
-1. **RX Path Testing:**
-   - Inject known frame with valid/invalid CRC
-   - Verify header extraction
-   - Verify frame_valid assertion
+A focused 2-test validation suite is provided in `testbench/tb_mac_controller.v` (400+ lines).
 
-2. **TX Path Testing:**
-   - Load FIFO with payload
-   - Verify frame construction
-   - Verify CRC calculation
-   - Verify tx_done timing
+### Test 1: TX Path (Frame Transmission)
+**Purpose:** Validate complete transmission pipeline from application to PHY
 
-3. **Integration Testing:**
-   - Simultaneous RX and TX
-   - Back-to-back frames
-   - FIFO overflow/underflow scenarios
+**Test Sequence:**
+1. Setup TX parameters (dest_mac, src_mac, eth_type)
+2. Fill payload FIFO with 46 bytes of test data
+3. Pulse app_tx_start signal
+4. Capture 72-byte complete frame (preamble + SFD + headers + payload + CRC)
+5. Display frame byte-by-byte with structure annotations
+6. Verify frame size (72 bytes) and structure correctness
+
+**Expected Output:**
+```
+Byte 0-6:    0xAA (preamble)
+Byte 7:      0xAB (SFD)
+Byte 8-13:   0x00 0x11 0x22 0x33 0x44 0x55 (dest_mac)
+Byte 14-19:  0xAA 0xBB 0xCC 0xDD 0xEE 0xFF (src_mac)
+Byte 20-21:  0x08 0x00 (eth_type)
+Byte 22-67:  0x41-0xAE (payload)
+Byte 68-71:  CRC bytes
+Total:       72 bytes
+```
+
+**Validation:**
+- ✓ Frame starts with 7 bytes of 0xAA
+- ✓ Byte 7 is 0xAB (SFD)
+- ✓ Destination MAC matches app input
+- ✓ Source MAC matches app input
+- ✓ EtherType matches app input
+- ✓ Payload matches FIFO data
+- ✓ Total frame = 72 bytes
+
+### Test 2: RX Path (Frame Reception)
+**Purpose:** Validate frame parsing and header extraction
+
+**Test Sequence:**
+1. Use frame captured from Test 1 (72 bytes)
+2. Inject frame bytes into RX FIFO one at a time
+3. Wait 300 cycles for Frame_Reception to parse complete frame
+4. Check extracted headers
+5. Verify CRC validation (frame_valid)
+6. Compare against Test 1 values
+
+**Expected Results:**
+```
+Destination MAC:    0x001122334455 ✓ (matches Test 1)
+Source MAC:         0xAABBCCDDEEFF ✓ (matches Test 1)
+EtherType:          0x0800         ✓ (matches Test 1)
+Frame Valid:        1              ✓ (CRC passed)
+RX Done:            1              ✓ (parsing complete)
+```
+
+**Validation:**
+- ✓ dest_mac extracted correctly
+- ✓ src_mac extracted correctly
+- ✓ eth_type extracted correctly
+- ✓ frame_valid = 1 (CRC validation passed)
+- ✓ rx_done = 1 (reception complete)
+- ✓ All parsed values match injected frame
+
+### Running the Testbench
+```bash
+cd Ethernet-MAC-Controller
+vsim -do run.do
+```
+
+**Expected Output:**
+- Test 1: ✓ TX Path test completed (72-byte frame captured)
+- Test 2: ✓ RX Path test PASSED (headers match original)
 
 ---
 

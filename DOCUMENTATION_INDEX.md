@@ -2,7 +2,7 @@
 
 ## 📚 Documentation Map
 
-Start here to find everything you need about the Ethernet MAC Controller implementation.
+Complete reference guide for the Ethernet MAC Controller implementation with focused 2-test validation suite.
 
 ---
 
@@ -11,24 +11,33 @@ Start here to find everything you need about the Ethernet MAC Controller impleme
 **First time here?** Start with these documents in order:
 
 1. **[README.md](README.md)** (5 min read)
-   - Project overview
-   - What's been completed
+   - Project overview and current status
+   - System architecture with 2 data paths
+   - Testbench overview (2 focused tests)
    - Quick summary of features
    - Next steps
 
 2. **[QUICK_REFERENCE.md](QUICK_REFERENCE.md)** (10 min read)
-   - At-a-glance port definitions
-   - Frame structure
-   - TX/RX state machines
-   - Common tasks
-   - Debug tips
+   - At-a-glance port definitions (24 signals)
+   - Frame structure breakdown
+   - TX/RX state machines with codes
+   - Typical usage code examples
+   - Test output format
 
-3. **[IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md)** (15 min read)
-   - What was delivered
+3. **[TESTING_GUIDE.md](TESTING_GUIDE.md)** (20 min read)
+   - Test 1: TX Path (detailed procedures)
+   - Test 2: RX Path (detailed procedures)
+   - Frame structure reference with byte positions
+   - Expected results for each test
+   - Key signals to monitor
+   - Debugging tips
+
+4. **[IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md)** (15 min read)
+   - What was delivered (implementation + testbench)
    - Architecture overview
-   - Key improvements made
-   - Module integration
-   - Statistics and metrics
+   - Latest updates (2-test focused suite)
+   - Test execution flow diagram
+   - Verification checklist
 
 ---
 
@@ -45,38 +54,35 @@ For detailed technical information, consult these comprehensive guides:
 - Detailed signal descriptions
 - State machine explanations
 - Design features and considerations
+- Data flow examples with test cases
 - Example instantiation code
-- Testing strategy
-- Future enhancements
+- Testing strategy for both paths
+- Performance metrics
 
 ### Signal & Timing Reference
 
 **[SIGNAL_CONNECTIONS.md](SIGNAL_CONNECTIONS.md)** (25+ pages)
-- Complete signal flow diagram
-- Control flow summary
-- Reception control flow diagram
-- Transmission control flow diagram
-- Key internal signals reference
+- Complete block diagram
+- Signal summary table (inputs/outputs)
+- Control flow logic (RX & TX paths)
 - Frame structure definition
-- Timing examples
-- TX state encoding
-- Signal direction convention
+- Timing examples (TX & RX sequences)
+- TX state machine states and transitions
+- Common connection errors and solutions
+- Waveform signals to monitor
+- Key design features table
 
 ### Testing & Debugging
 
 **[TESTING_GUIDE.md](TESTING_GUIDE.md)** (30+ pages)
-- Implementation checklist
-- Phase 1: Basic connectivity
-- Phase 2: RX application interface
-- Phase 3: TX application interface
-- Phase 4: Debugging
-- Detailed RX path walkthrough (step-by-step)
-- Detailed TX path walkthrough (step-by-step)
-- State machine flow diagrams
-- Verification test cases (5 complete examples)
-- Debug tips and solutions
-- Performance metrics
-- Next steps for implementation
+- Quick start (running testbench)
+- Testbench architecture (2-test design)
+- Test 1: TX Path (step-by-step walkthrough)
+- Test 2: RX Path (step-by-step walkthrough)
+- Frame structure reference
+- Key signals during testing
+- Debugging checklist for both paths
+- General debug strategy with examples
 
 ---
 
@@ -86,28 +92,37 @@ For detailed technical information, consult these comprehensive guides:
 Ethernet-MAC-Controller/
 │
 ├── 📄 Core Documentation (You are here)
-│   ├── README.md                    ← Project overview
-│   ├── QUICK_REFERENCE.md           ← Quick lookup card
-│   ├── IMPLEMENTATION_SUMMARY.md    ← What was delivered
-│   ├── MAC_CONTROLLER_DESIGN.md     ← Full architecture
-│   ├── SIGNAL_CONNECTIONS.md        ← Signal reference
-│   ├── TESTING_GUIDE.md             ← Testing manual
+│   ├── README.md                    ← Project overview & 2-test testbench
+│   ├── QUICK_REFERENCE.md           ← Quick lookup card with examples
+│   ├── IMPLEMENTATION_SUMMARY.md    ← What was delivered & updates
+│   ├── MAC_CONTROLLER_DESIGN.md     ← Full architecture guide
+│   ├── SIGNAL_CONNECTIONS.md        ← Complete signal reference
+│   ├── TESTING_GUIDE.md             ← 2-test validation procedures
 │   └── DOCUMENTATION_INDEX.md       ← This file
 │
 ├── 📂 src/
-│   ├── mac_controller.v             ← MAIN IMPLEMENTATION ⭐
-│   ├── fifo_rx.v                    ← RX buffer (8B)
-│   ├── fifo_tx.v                    ← TX buffer (16B)
-│   ├── frame_reception.v            ← RX frame parser
-│   ├── frame_transmission.v         ← TX frame builder
-│   └── crc_generator.v              ← CRC calculator
+│   ├── mac_controller.v             ← MAIN IMPLEMENTATION ⭐ (182 lines)
+│   ├── fifo_rx.v                    ← RX buffer (8 bytes)
+│   ├── fifo_tx.v                    ← TX buffer (16 bytes)
+│   ├── frame_reception.v            ← RX frame parser FSM
+│   ├── frame_transmission.v         ← TX frame builder FSM
+│   └── crc_generator.v              ← CRC-32 calculator (shared)
 │
 ├── 📂 testbench/
-│   ├── tb_*.v                       ← Test benches
-│   └── (Ready for enhancement)
+│   ├── tb_mac_controller.v          ← MAIN TESTBENCH ⭐ (400+ lines)
+│   │                                   Test 1: TX Path Validation
+│   │                                   Test 2: RX Path Validation
+│   ├── tb_mac_controller_new.v      ← Alternative version
+│   ├── tb_frame_transmission.v      ← TX module unit test
+│   ├── tb_frame_reception.v         ← RX module unit test
+│   ├── tb_fifo_rx.v                 ← RX FIFO unit test
+│   ├── tb_fifo_tx.v                 ← TX FIFO unit test
+│   └── tb_crc_generator.v           ← CRC validation test
 │
-└── 📂 simulation/
-    └── (Simulation artifacts)
+├── 📂 simulation/
+│   └── (Simulation artifacts & waveforms)
+│
+└── 📄 run.do                         ← ModelSim simulation script
 ```
 
 ---
@@ -116,38 +131,53 @@ Ethernet-MAC-Controller/
 
 ### I need to understand...
 
+**What's new in this version?**
+→ Read: [IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md) - Latest Updates section
+→ Then: [TESTING_GUIDE.md](TESTING_GUIDE.md) - for detailed test procedures
+
 **How does the MAC controller work?**
 → Read: [MAC_CONTROLLER_DESIGN.md](MAC_CONTROLLER_DESIGN.md) - Overview section
+→ Then: [README.md](README.md) - for architecture diagrams
 
-**What are all the ports?**
-→ Read: [QUICK_REFERENCE.md](QUICK_REFERENCE.md) - Port Quick Reference
-→ Or: [SIGNAL_CONNECTIONS.md](SIGNAL_CONNECTIONS.md) - Key Internal Signals Reference
+**What are all 24 ports?**
+→ Read: [QUICK_REFERENCE.md](QUICK_REFERENCE.md) - Port Summary
+→ Or: [SIGNAL_CONNECTIONS.md](SIGNAL_CONNECTIONS.md) - Signal Summary Table
 
-**How do I connect it to my design?**
-→ Read: [TESTING_GUIDE.md](TESTING_GUIDE.md) - Implementation Checklist
-→ Or: [MAC_CONTROLLER_DESIGN.md](MAC_CONTROLLER_DESIGN.md) - Example Instantiation
+**How do I run the testbench?**
+→ Read: [TESTING_GUIDE.md](TESTING_GUIDE.md) - Quick Start section
+→ Command: `vsim -do run.do`
+
+**What does Test 1 (TX Path) validate?**
+→ Read: [TESTING_GUIDE.md](TESTING_GUIDE.md) - Test 1: TX Path
+→ Shows: Frame transmission, FIFO filling, 72-byte output capture
+
+**What does Test 2 (RX Path) validate?**
+→ Read: [TESTING_GUIDE.md](TESTING_GUIDE.md) - Test 2: RX Path
+→ Shows: Frame injection, parsing, header extraction & verification
 
 **How does reception work?**
 → Read: [MAC_CONTROLLER_DESIGN.md](MAC_CONTROLLER_DESIGN.md) - RX Path section
-→ Or: [TESTING_GUIDE.md](TESTING_GUIDE.md) - RX Path Detailed Walkthrough
+→ Then: [TESTING_GUIDE.md](TESTING_GUIDE.md) - Test 2 walkthrough
 
 **How does transmission work?**
 → Read: [MAC_CONTROLLER_DESIGN.md](MAC_CONTROLLER_DESIGN.md) - TX Path section
-→ Or: [TESTING_GUIDE.md](TESTING_GUIDE.md) - TX Path Detailed Walkthrough
+→ Then: [TESTING_GUIDE.md](TESTING_GUIDE.md) - Test 1 walkthrough
 
 **What signals control data flow?**
-→ Read: [SIGNAL_CONNECTIONS.md](SIGNAL_CONNECTIONS.md) - Key Internal Signals Reference
-→ Or: [QUICK_REFERENCE.md](QUICK_REFERENCE.md) - Signal Meanings
-
-**How do I test it?**
-→ Read: [TESTING_GUIDE.md](TESTING_GUIDE.md) - Verification Test Cases
+→ Read: [SIGNAL_CONNECTIONS.md](SIGNAL_CONNECTIONS.md) - Control Flow Logic
+→ Or: [QUICK_REFERENCE.md](QUICK_REFERENCE.md) - Key Signals Table
 
 **How do I debug issues?**
-→ Read: [QUICK_REFERENCE.md](QUICK_REFERENCE.md) - Common Issues & Solutions
-→ Or: [TESTING_GUIDE.md](TESTING_GUIDE.md) - Debug Tips
+→ Read: [TESTING_GUIDE.md](TESTING_GUIDE.md) - Debugging Tips & Checklist
+→ Then: [QUICK_REFERENCE.md](QUICK_REFERENCE.md) - Debugging Checklist
 
 **What are the frame formats?**
 → Read: [SIGNAL_CONNECTIONS.md](SIGNAL_CONNECTIONS.md) - Frame Structure
+→ Or: [TESTING_GUIDE.md](TESTING_GUIDE.md) - Frame Structure Reference
+
+**How do I instantiate the module?**
+→ Read: [MAC_CONTROLLER_DESIGN.md](MAC_CONTROLLER_DESIGN.md) - Example Instantiation
+→ Reference: [QUICK_REFERENCE.md](QUICK_REFERENCE.md) - Port Summary
 → Or: [QUICK_REFERENCE.md](QUICK_REFERENCE.md) - TX Frame Structure
 
 **What state are the FSMs in?**
@@ -160,12 +190,12 @@ Ethernet-MAC-Controller/
 
 | Document | Length | Focus | Best For |
 |----------|--------|-------|----------|
-| **README.md** | 5 min | Overview | Getting started |
-| **QUICK_REFERENCE.md** | 10 min | Quick lookup | Fast answers |
-| **IMPLEMENTATION_SUMMARY.md** | 15 min | Deliverables | Understanding status |
+| **README.md** | 5 min | Project overview & 2-test suite | Getting started |
+| **QUICK_REFERENCE.md** | 10 min | Quick lookup & examples | Fast answers |
+| **TESTING_GUIDE.md** | 30+ pages | 2-test procedures & debug | Implementation & validation |
+| **IMPLEMENTATION_SUMMARY.md** | 15 min | Deliverables & updates | Understanding project status |
 | **MAC_CONTROLLER_DESIGN.md** | 30+ pages | Full architecture | Deep understanding |
 | **SIGNAL_CONNECTIONS.md** | 25+ pages | Signals & timing | Detailed reference |
-| **TESTING_GUIDE.md** | 30+ pages | Testing & debug | Implementation & verification |
 
 **Total Documentation:** 2,500+ lines covering every aspect of the MAC Controller
 
@@ -173,105 +203,134 @@ Ethernet-MAC-Controller/
 
 ## 🔧 Common Tasks
 
+### Task: "I want to understand the 2-test testbench"
+1. Read: [TESTING_GUIDE.md](TESTING_GUIDE.md) - Testbench Architecture & Test 1 & Test 2
+2. Review: [IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md) - Test Execution Flow
+3. Run: `vsim -do run.do` to see tests in action
+
 ### Task: "I want to understand the architecture"
-1. Read: [README.md](README.md) - 5 min overview
-2. Read: [MAC_CONTROLLER_DESIGN.md](MAC_CONTROLLER_DESIGN.md) - Architecture section
-3. View: [SIGNAL_CONNECTIONS.md](SIGNAL_CONNECTIONS.md) - Signal flow diagram
+1. Read: [README.md](README.md) - System Architecture (5 min)
+2. Study: [MAC_CONTROLLER_DESIGN.md](MAC_CONTROLLER_DESIGN.md) - RX/TX Path sections
+3. View: [SIGNAL_CONNECTIONS.md](SIGNAL_CONNECTIONS.md) - Block diagram
 
 ### Task: "I need to integrate this with my system"
-1. Read: [QUICK_REFERENCE.md](QUICK_REFERENCE.md) - Port reference
-2. Read: [TESTING_GUIDE.md](TESTING_GUIDE.md) - Implementation Checklist
-3. Refer: [MAC_CONTROLLER_DESIGN.md](MAC_CONTROLLER_DESIGN.md) - Example instantiation
+1. Read: [QUICK_REFERENCE.md](QUICK_REFERENCE.md) - Port reference (24 signals)
+2. Study: [MAC_CONTROLLER_DESIGN.md](MAC_CONTROLLER_DESIGN.md) - Example Instantiation
+3. Refer: [SIGNAL_CONNECTIONS.md](SIGNAL_CONNECTIONS.md) - Signal table
 
-### Task: "I need to verify my implementation"
-1. Read: [TESTING_GUIDE.md](TESTING_GUIDE.md) - Test cases
-2. View: [SIGNAL_CONNECTIONS.md](SIGNAL_CONNECTIONS.md) - Timing examples
+### Task: "I want to verify the implementation"
+1. Read: [TESTING_GUIDE.md](TESTING_GUIDE.md) - Test 1 & Test 2 procedures
+2. Check: [IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md) - Verification Checklist
 3. Use: [QUICK_REFERENCE.md](QUICK_REFERENCE.md) - Debug tips
 
 ### Task: "Something isn't working - help!"
-1. Check: [QUICK_REFERENCE.md](QUICK_REFERENCE.md) - Common Issues section
-2. Read: [TESTING_GUIDE.md](TESTING_GUIDE.md) - Debug Tips section
-3. Verify: [MAC_CONTROLLER_DESIGN.md](MAC_CONTROLLER_DESIGN.md) - Verify design assumptions
+1. Check: [TESTING_GUIDE.md](TESTING_GUIDE.md) - Debugging Tips & Checklist
+2. Review: [QUICK_REFERENCE.md](QUICK_REFERENCE.md) - Debug Checklist
+3. Study: [MAC_CONTROLLER_DESIGN.md](MAC_CONTROLLER_DESIGN.md) - Verify assumptions
 
 ---
 
 ## 📋 Key Information At A Glance
 
+### Project Status
+- **Version:** 2.0 (With focused 2-test suite)
+- **Status:** Ready for simulation and validation
+- **Testbench:** 2 focused tests (TX path + RX path)
+- **Exit Code:** 0 (last run successful)
+
 ### Module Statistics
 - **Ports:** 24 total (11 inputs, 13 outputs)
 - **Clock Domains:** 1 (synchronous)
+- **Clock Frequency:** 100 MHz
 - **Memory:** 192 bits total (24 bytes)
 - **Estimated Gates:** 2-5K equivalent
 - **Submodules:** 6 integrated
 
+### 2-Test Validation Suite
+| Test | Path | Purpose | Validates |
+|------|------|---------|-----------|
+| **Test 1** | TX | Payload FIFO → Frame transmission → PHY | Frame generation, FIFO control, output structure |
+| **Test 2** | RX | PHY frame input → RX FIFO → Frame parsing → App | Frame parsing, header extraction, CRC validation |
+
 ### RX Path
-- Input: Raw Ethernet frames from PHY
-- Processing: FIFO → Parser → CRC Validator
-- Output: Parsed headers + CRC status
+- Input: Raw Ethernet frames from PHY (rx_en, rx_data, rx_data_valid)
+- Processing: FIFO_RX → Frame_Reception → CRC_Generator
+- Output: dest_mac, src_mac, eth_type, frame_valid, rx_done
 - Speed: 1 byte/cycle
 
 ### TX Path
 - Input: Payload + MAC parameters from application
-- Processing: FIFO → Frame Builder → CRC Generator
-- Output: Complete Ethernet frame to PHY
+- Processing: FIFO_TX → Frame_Transmission → CRC_Generator
+- Output: Complete Ethernet frame to PHY (tx_en, tx_data, tx_data_valid)
 - Speed: 1 byte/cycle
 
-### Frame Format (TX)
+### Frame Format (IEEE 802.3)
 ```
-Preamble (7B) + SFD (1B) + Dest MAC (6B) + 
-Src MAC (6B) + Ethernet Type (2B) + 
-Payload (Variable) + CRC (4B)
+Bytes 0-6:    Preamble (0xAA × 7)
+Byte 7:       SFD (0xAB)
+Bytes 8-13:   Destination MAC (6 bytes)
+Bytes 14-19:  Source MAC (6 bytes)
+Bytes 20-21:  EtherType (2 bytes, e.g., 0x0800 for IPv4)
+Bytes 22-67:  Payload (46+ bytes, min 46)
+Bytes 68-71:  CRC-32 (4 bytes)
+───────────────────────────────────
+Total:        72 bytes (minimum frame)
 ```
 
 ---
 
 ## 🎓 Learning Path
 
-For best understanding, follow this learning path:
+For best understanding, follow this structured learning path:
 
 1. **Get Overview** (10 min)
-   - Read README.md
-   - Skim QUICK_REFERENCE.md
+   - Read [README.md](README.md)
+   - Review [QUICK_REFERENCE.md](QUICK_REFERENCE.md) sections
 
-2. **Understand Architecture** (30 min)
-   - Read MAC_CONTROLLER_DESIGN.md overview
-   - Study SIGNAL_CONNECTIONS.md signal flow diagram
+2. **Understand 2-Test Suite** (20 min)
+   - Read [TESTING_GUIDE.md](TESTING_GUIDE.md) - Quick Start & Testbench Overview
+   - Study [IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md) - Test Execution Flow
 
-3. **Learn Details** (60 min)
-   - Read RX path sections
-   - Read TX path sections
-   - Study state machine diagrams
+3. **Learn Architecture** (30 min)
+   - Read [MAC_CONTROLLER_DESIGN.md](MAC_CONTROLLER_DESIGN.md) - Overview & RX Path
+   - Continue with TX Path section
+   - Study block diagrams in [SIGNAL_CONNECTIONS.md](SIGNAL_CONNECTIONS.md)
 
-4. **Plan Integration** (30 min)
-   - Study TESTING_GUIDE.md implementation checklist
-   - Review example instantiation code
-   - List all connections needed
+4. **Study Test Details** (30 min)
+   - Deep dive into [TESTING_GUIDE.md](TESTING_GUIDE.md) - Test 1 & Test 2
+   - Review expected outputs and frame structure
 
-5. **Prepare for Testing** (30 min)
-   - Study test case examples
-   - Review debug tips
-   - Prepare simulation environment
+5. **Review Signals** (20 min)
+   - Study [SIGNAL_CONNECTIONS.md](SIGNAL_CONNECTIONS.md) - Signal tables
+   - Review control flow logic sections
+   - Check timing examples
 
-6. **Reference During Development** (ongoing)
-   - Keep QUICK_REFERENCE.md handy
-   - Use SIGNAL_CONNECTIONS.md for signal details
-   - Consult TESTING_GUIDE.md for debugging
+6. **Integration & Debug** (30 min)
+   - Review [MAC_CONTROLLER_DESIGN.md](MAC_CONTROLLER_DESIGN.md) - Example Instantiation
+   - Study [TESTING_GUIDE.md](TESTING_GUIDE.md) - Debugging section
+   - Review [QUICK_REFERENCE.md](QUICK_REFERENCE.md) - Debugging Checklist
+
+7. **Reference During Development** (ongoing)
+   - Keep [QUICK_REFERENCE.md](QUICK_REFERENCE.md) handy for port/signal lookup
+   - Use [SIGNAL_CONNECTIONS.md](SIGNAL_CONNECTIONS.md) for detailed signal info
+   - Consult [TESTING_GUIDE.md](TESTING_GUIDE.md) when debugging
 
 ---
 
 ## ✅ Verification Checklist
 
-Before you start integration:
+Before you start integration, ensure you understand:
 
-- [ ] I've read README.md
-- [ ] I understand the RX path flow
-- [ ] I understand the TX path flow
+- [ ] I've read README.md (project overview)
+- [ ] I understand Test 1 (TX path validation)
+- [ ] I understand Test 2 (RX path validation)
 - [ ] I know all 24 port definitions
-- [ ] I understand the frame structure
-- [ ] I know the state machine states
-- [ ] I can identify control signals
+- [ ] I understand the frame structure (72 bytes)
+- [ ] I know the TX FSM states
+- [ ] I understand FIFO control signals
 - [ ] I know how to debug issues
-- [ ] I'm ready to integrate
+- [ ] I can run the testbench (`vsim -do run.do`)
+- [ ] I'm ready to integrate or extend tests
 
 ---
 
@@ -280,25 +339,27 @@ Before you start integration:
 ### By Category
 
 **Getting Started**
-- [README.md](README.md) - Project overview and status
+- [README.md](README.md) - Project overview with 2-test testbench
+
+**Test & Validation**
+- [TESTING_GUIDE.md](TESTING_GUIDE.md) - 2-test procedures and debugging
+- [IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md) - Test execution flow
 
 **Quick Lookup**
-- [QUICK_REFERENCE.md](QUICK_REFERENCE.md) - Fast answers and common tasks
+- [QUICK_REFERENCE.md](QUICK_REFERENCE.md) - Fast reference for ports and signals
 
 **Architecture**
-- [MAC_CONTROLLER_DESIGN.md](MAC_CONTROLLER_DESIGN.md) - Full technical architecture
+- [MAC_CONTROLLER_DESIGN.md](MAC_CONTROLLER_DESIGN.md) - Complete technical architecture
 
 **Signals**
-- [SIGNAL_CONNECTIONS.md](SIGNAL_CONNECTIONS.md) - Signal definitions and flows
-
-**Testing**
-- [TESTING_GUIDE.md](TESTING_GUIDE.md) - Implementation and testing guide
+- [SIGNAL_CONNECTIONS.md](SIGNAL_CONNECTIONS.md) - Detailed signal reference and timing
 
 **Summary**
-- [IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md) - What was delivered
+- [IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md) - Project status and updates
 
 **Source Code**
 - [src/mac_controller.v](src/mac_controller.v) - Main implementation (182 lines)
+- [testbench/tb_mac_controller.v](testbench/tb_mac_controller.v) - 2-test suite (400+ lines)
 
 ---
 
@@ -306,20 +367,34 @@ Before you start integration:
 
 ### If you need to know...
 
-**Port definitions and signal meanings:**
-→ [QUICK_REFERENCE.md](QUICK_REFERENCE.md#port-quick-reference)
+**How to run the testbench:**
+→ [TESTING_GUIDE.md](TESTING_GUIDE.md#quick-start)
+→ Command: `vsim -do run.do`
+
+**Port definitions (24 signals):**
+→ [QUICK_REFERENCE.md](QUICK_REFERENCE.md#port-summary)
+→ Or: [SIGNAL_CONNECTIONS.md](SIGNAL_CONNECTIONS.md#signal-summary-table)
+
+**How the 2 tests work:**
+→ [TESTING_GUIDE.md](TESTING_GUIDE.md#test-1-tx-path-frame-transmission)
+→ [TESTING_GUIDE.md](TESTING_GUIDE.md#test-2-rx-path-frame-reception)
 
 **How signals work together:**
-→ [SIGNAL_CONNECTIONS.md](SIGNAL_CONNECTIONS.md#complete-signal-flow-diagram)
+→ [SIGNAL_CONNECTIONS.md](SIGNAL_CONNECTIONS.md#complete-system-block-diagram)
+→ [MAC_CONTROLLER_DESIGN.md](MAC_CONTROLLER_DESIGN.md#data-flow-examples)
 
 **Step-by-step examples:**
-→ [TESTING_GUIDE.md](TESTING_GUIDE.md#rx-path-detailed-walkthrough)
+→ [TESTING_GUIDE.md](TESTING_GUIDE.md) - Full test procedures with expected output
 
-**Debugging tips:**
-→ [QUICK_REFERENCE.md](QUICK_REFERENCE.md#common-issues--solutions) or [TESTING_GUIDE.md](TESTING_GUIDE.md#debug-tips)
+**Debugging & troubleshooting:**
+→ [TESTING_GUIDE.md](TESTING_GUIDE.md#debugging-tips)
+→ [QUICK_REFERENCE.md](QUICK_REFERENCE.md#debugging-checklist)
 
 **Full technical details:**
 → [MAC_CONTROLLER_DESIGN.md](MAC_CONTROLLER_DESIGN.md)
+
+**Current project status:**
+→ [IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md)
 
 ---
 
@@ -328,8 +403,28 @@ Before you start integration:
 | Metric | Value |
 |--------|-------|
 | **Total Documentation** | 2,500+ lines |
-| **Number of Files** | 6 comprehensive guides |
-| **Code Comments** | Extensive inline |
+| **Number of Guides** | 6 comprehensive documents |
+| **Code Lines** | 182 (mac_controller) + 400+ (testbench) |
+| **Test Cases** | 2 focused validation tests |
+| **Submodules** | 6 integrated modules |
+| **Total Signals** | 24 (11 inputs, 13 outputs) |
+
+---
+
+## 🎯 Project Completion Status
+
+✅ **Core Implementation:** Complete (mac_controller.v)
+✅ **2-Test Validation Suite:** Complete (tb_mac_controller.v)
+✅ **Documentation:** Complete (2,500+ lines)
+✅ **Syntax Validation:** Passed (no compilation errors)
+✅ **Architecture:** Verified and documented
+⏳ **Simulation Testing:** Ready to run (`vsim -do run.do`)
+
+---
+
+**Last Updated:** March 6, 2026
+**Version:** 2.0 (With focused 2-test suite)
+**Status:** Ready for simulation and validation
 | **Diagrams** | 10+ ASCII diagrams |
 | **Example Code** | 15+ code examples |
 | **Test Cases** | 5+ complete examples |
