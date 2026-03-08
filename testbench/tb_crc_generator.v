@@ -12,14 +12,14 @@ module tb_crc_generator;
     // Outputs
     wire [31:0] crc_out;
     wire crc_done;
-    wire crc_valid;  // New: indicates if CRC verification passes
+    wire crc_valid;
 
     // Test tracking
     integer errors = 0;
     reg [31:0] computed_crc;
     reg [31:0] crc_residue;
 
-    // Instantiate the CRC generator
+    // Instantiate DUT
     crc_generator uut (
         .clk(clk),
         .rst_n(rst_n),
@@ -32,18 +32,21 @@ module tb_crc_generator;
     );
 
     // Clock generation
-    always #5 clk = ~clk; // 10ns clock period (100 MHz)
+    always #5 clk = ~clk; // 100 MHz clock
 
-    // Monitor CRC activity
+    // Monitor activity
     always @(posedge clk) begin
         if (data_valid && crc_en)
-            $display("[CRC_IN] Byte: 0x%02H | CRC Reg: 0x%08H", data_in, uut.crc_reg);
-        
+            $display("[CRC_IN] Byte: 0x%02H | CRC Reg (before update): 0x%08H",
+                     data_in, uut.crc_reg);
+
         if (crc_done)
             $display("[CRC_OUT] Final CRC: 0x%08H", crc_out);
     end
 
-    // Task to send one byte for CRC calculation
+    // =========================
+    // TASK: Send CRC byte
+    // =========================
     task send_crc_byte(input [7:0] byte_val);
     begin
         @(posedge clk);
@@ -54,55 +57,53 @@ module tb_crc_generator;
     end
     endtask
 
-    // Task to send byte during verification phase
-    task send_verify_byte(input [7:0] byte_val);
-    begin
-        @(posedge clk);
-        data_in = byte_val;
-        data_valid = 1;
-        @(posedge clk);
-        data_valid = 0;
-    end
-    endtask
 
-    // Task to wait for CRC computation
+    // =========================
+    // TASK: Wait for CRC finish
+    // =========================
     task wait_for_crc;
     begin
         @(posedge clk);
-        crc_en = 0;  // Signal end of data
+        crc_en = 0;           // signal end of stream
         wait(crc_done == 1);
-        @(posedge clk);
+        @(posedge clk);       // allow outputs to settle
     end
     endtask
 
-    // Test procedure
+
+    // =========================
+    // TEST PROCEDURE
+    // =========================
     initial begin
+
         $display("\n========================================");
         $display("  CRC32 GENERATOR TESTBENCH");
-        $display("  Ethernet Frame CRC Verification");
+        $display("  Ethernet CRC Calculation + Verification");
         $display("========================================\n");
 
-        // Initialize signals
+        // Init
         clk = 0;
         rst_n = 0;
-        data_in = 8'b0;
+        data_in = 8'h00;
         data_valid = 0;
         crc_en = 0;
         errors = 0;
-        computed_crc = 32'h00000000;
-        crc_residue = 32'h00000000;
 
-        // Apply reset
+        // Reset
         #20 rst_n = 1;
         $display("[RESET] CRC Generator reset released\n");
 
-        // ====== TEST CASE 1: CRC Computation ======
-        $display("TEST CASE 1: Compute CRC for 4-byte Ethernet Payload");
-        $display("  Input Data: 0x12 0x34 0x56 0x78");
-        $display("  ------");
-        
+
+
+        // =====================================
+        // TEST CASE 1 : CRC COMPUTATION
+        // =====================================
+        $display("TEST CASE 1: Compute CRC for payload");
+        $display("Input Data: 0x12 0x34 0x56 0x78");
+        $display("------------------------------------");
+
         @(posedge clk);
-        crc_en = 1;  // Start CRC accumulation
+        crc_en = 1;
 
         send_crc_byte(8'h12);
         send_crc_byte(8'h34);
@@ -110,118 +111,160 @@ module tb_crc_generator;
         send_crc_byte(8'h78);
 
         wait_for_crc;
-        
+
         computed_crc = crc_out;
-        $display("  Computed CRC: 0x%08H\n", computed_crc);
+
+        $display("Computed CRC: 0x%08H", computed_crc);
+        $display("NOTE: Residue check is NOT expected here (data only)\n");
+
+
 
         #50;
 
-        // ====== TEST CASE 2: CRC Verification ======
-        $display("TEST CASE 2: Verify CRC by Re-processing Data + CRC");
-        $display("  Re-sending: Data (0x12 0x34 0x56 0x78) + CRC (0x%02H 0x%02H 0x%02H 0x%02H)",
-                 computed_crc[31:24], computed_crc[23:16], computed_crc[15:8], computed_crc[7:0]);
-        $display("  Expected: crc_valid signal should be asserted (1)");
-        $display("  ------");
+
+
+        // =====================================
+        // TEST CASE 2 : CRC VERIFICATION
+        // =====================================
+        $display("TEST CASE 2: CRC Verification");
+        $display("Re-sending: Data + CRC");
+        $display("CRC Bytes: %02H %02H %02H %02H",
+                 computed_crc[31:24],
+                 computed_crc[23:16],
+                 computed_crc[15:8],
+                 computed_crc[7:0]);
+        $display("------------------------------------");
 
         @(posedge clk);
-        crc_en = 1;  // Start CRC accumulation for verification
+        crc_en = 1;
 
-        // Send original data
-        send_verify_byte(8'h12);
-        send_verify_byte(8'h34);
-        send_verify_byte(8'h56);
-        send_verify_byte(8'h78);
+        // Original data
+        send_crc_byte(8'h12);
+        send_crc_byte(8'h34);
+        send_crc_byte(8'h56);
+        send_crc_byte(8'h78);
 
-        // Send the computed CRC in big-endian byte order
-        send_verify_byte(computed_crc[31:24]);
-        send_verify_byte(computed_crc[23:16]);
-        send_verify_byte(computed_crc[15:8]);
-        send_verify_byte(computed_crc[7:0]);
+        // CRC bytes
+        send_crc_byte(computed_crc[31:24]);
+        send_crc_byte(computed_crc[23:16]);
+        send_crc_byte(computed_crc[15:8]);
+        send_crc_byte(computed_crc[7:0]);
 
         wait_for_crc;
 
-        $display("  CRC Valid: %b (should be 1)", crc_valid);
         if (crc_valid) begin
-            $display("  PASS: CRC verification successful - frame is valid ✓\n");
-        end else begin
-            $display("  FAIL: CRC verification failed - frame is corrupted ✗\n");
+            $display("PASS: CRC residue detected -> frame VALID ✓\n");
+        end
+        else begin
+            $display("FAIL: CRC residue not detected -> frame INVALID ✗\n");
             errors = errors + 1;
         end
 
+
+
         #50;
 
-        // ====== TEST CASE 3: Single Byte CRC ======
-        $display("TEST CASE 3: Single Byte CRC Computation");
-        $display("  Input Data: 0xB6");
-        $display("  ------");
+
+
+        // =====================================
+        // TEST CASE 3 : SINGLE BYTE CRC
+        // =====================================
+        $display("TEST CASE 3: Single Byte CRC");
+        $display("Input Data: 0xB6");
+        $display("------------------------------------");
 
         @(posedge clk);
         crc_en = 1;
+
         send_crc_byte(8'hB6);
+
         wait_for_crc;
 
-        $display("  Computed CRC: 0x%08H\n", crc_out);
+        $display("Computed CRC: 0x%08H", crc_out);
+        $display("NOTE: No residue expected (data only)\n");
+
+
 
         #50;
 
-        // ====== TEST CASE 4: Different Data Pattern ======
-        $display("TEST CASE 4: Compute and Verify Different Pattern");
-        $display("  Input Data: 0xAA 0xBB 0xCC 0xDD");
-        $display("  ------");
+
+
+        // =====================================
+        // TEST CASE 4 : DIFFERENT DATA PATTERN
+        // =====================================
+        $display("TEST CASE 4: Compute + Verify pattern");
+        $display("Input Data: 0xAA 0xBB 0xCC 0xDD");
+        $display("------------------------------------");
 
         @(posedge clk);
         crc_en = 1;
+
         send_crc_byte(8'hAA);
         send_crc_byte(8'hBB);
         send_crc_byte(8'hCC);
         send_crc_byte(8'hDD);
+
         wait_for_crc;
 
         computed_crc = crc_out;
-        $display("  Computed CRC: 0x%08H", computed_crc);
 
-        // Verify this CRC
+        $display("Computed CRC: 0x%08H", computed_crc);
+
+
+
+        // Verification phase
         #50;
+
         @(posedge clk);
         crc_en = 1;
-        send_verify_byte(8'hAA);
-        send_verify_byte(8'hBB);
-        send_verify_byte(8'hCC);
-        send_verify_byte(8'hDD);
-        send_verify_byte(computed_crc[31:24]);
-        send_verify_byte(computed_crc[23:16]);
-        send_verify_byte(computed_crc[15:8]);
-        send_verify_byte(computed_crc[7:0]);
+
+        send_crc_byte(8'hAA);
+        send_crc_byte(8'hBB);
+        send_crc_byte(8'hCC);
+        send_crc_byte(8'hDD);
+
+        send_crc_byte(computed_crc[31:24]);
+        send_crc_byte(computed_crc[23:16]);
+        send_crc_byte(computed_crc[15:8]);
+        send_crc_byte(computed_crc[7:0]);
+
         wait_for_crc;
 
-        crc_residue = crc_out;
-        $display("  Verification CRC: 0x%08H", crc_residue);
-        
         if (crc_valid) begin
-            $display("  PASS: CRC verification successful ✓\n");
-        end else begin
-            $display("  FAIL: CRC verification failed ✗\n");
+            $display("PASS: CRC verification successful ✓\n");
+        end
+        else begin
+            $display("FAIL: CRC verification failed ✗\n");
             errors = errors + 1;
         end
 
-        // Summary
+
+
+        // =====================================
+        // SUMMARY
+        // =====================================
         #100;
+
         $display("========================================");
-        $display("  TEST SUMMARY");
+        $display("TEST SUMMARY");
         $display("========================================");
-        $display("  Total Test Cases: 4");
-        $display("  Individual Verification Tests: 2");
-        $display("  Errors Found: %d", errors);
+        $display("Total Test Cases: 4");
+        $display("Verification Tests: 2");
+        $display("Errors Found: %0d", errors);
+
         if (errors == 0) begin
-            $display("  CRC Computation: Working ✓");
-            $display("  CRC Verification: Working ✓");
-            $display("  Status: ✓ CRC TESTBENCH COMPLETE - ALL TESTS PASSED");
-        end else begin
-            $display("  Status: ✗ SOME TESTS FAILED");
+            $display("CRC Computation: Working ✓");
+            $display("CRC Verification: Working ✓");
+            $display("Status: ✓ ALL TESTS PASSED");
         end
+        else begin
+            $display("Status: ✗ SOME TESTS FAILED");
+        end
+
         $display("========================================\n");
 
         $stop;
+
     end
 
 endmodule

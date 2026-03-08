@@ -53,14 +53,17 @@ module crc_generator (
                 end
             end else if (crc_active) begin
                 // Finalize CRC once crc_en is deasserted
+                $display(">> CRC FINALIZE: crc_en deasserted at time %0t", $time);
+                $display(">> CRC REGISTER VALUE: 0x%h", crc_reg);
+                $display(">> CRC RESIDUE EXPECTED: 0x%h", CRC_RESIDUE);
                 
                 // Check if CRC verification passes (for received frames)
                 if (crc_reg == CRC_RESIDUE) begin
                     crc_valid <= 1'b1;  // Valid frame - residue matches
-                    $display(">> CRC VERIFICATION PASSED: Residue matches 0x%h", CRC_RESIDUE);
+                    $display(">> CRC VERIFICATION PASSED: Residue matches 0x%h at time %0t", CRC_RESIDUE, $time);
                 end else begin
                     crc_valid <= 1'b0;  // Invalid frame
-                    $display(">> CRC VERIFICATION FAILED: Residue is 0x%h (expected 0x%h)", crc_reg, CRC_RESIDUE);
+                    $display(">> CRC VERIFICATION FAILED: Residue is 0x%h (expected 0x%h) at time %0t", crc_reg, CRC_RESIDUE, $time);
                 end
 
                 crc_out    <= ~crc_reg;           // Final CRC result (inverted for transmission)

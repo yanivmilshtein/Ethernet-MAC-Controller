@@ -17,7 +17,7 @@ module tb_frame_reception;
     wire frame_valid;
     wire rx_done;
 
-    // ==================== DUT INSTANTIATION ====================
+    // ==================== DUT ====================
     frame_reception uut (
         .clk(clk),
         .rst_n(rst_n),
@@ -33,19 +33,26 @@ module tb_frame_reception;
         .rx_done(rx_done)
     );
 
-    // ==================== CLOCK GENERATION ====================
+    // ==================== CLOCK ====================
     always #5 clk = ~clk;
 
     // ==================== TEST VARIABLES ====================
     integer test_passed;
     integer test_failed;
     integer byte_count;
+
     reg [3:0] prev_state;
 
-    // ==================== STATE DISPLAY ====================
     reg [63:0] state_name;
     reg [63:0] prev_state_name;
 
+    // ===== LATCHED RESULTS (CRITICAL FIX) =====
+    reg [47:0] sampled_dest_mac;
+    reg [47:0] sampled_src_mac;
+    reg [15:0] sampled_eth_type;
+    reg        sampled_frame_valid;
+
+    // ==================== STATE NAME ====================
     always @(*) begin
         case (uut.state)
             4'd0: state_name = "IDLE";
@@ -61,7 +68,7 @@ module tb_frame_reception;
         endcase
     end
 
-    // ==================== SEND BYTE TASK ====================
+    // ==================== SEND BYTE ====================
     task send_byte(input [7:0] byte_val);
     begin
         @(posedge clk);
@@ -70,13 +77,12 @@ module tb_frame_reception;
 
         @(posedge clk);
         rx_data_valid <= 1'b0;
-        
-        // Wait one more cycle for state machine to process
+
         @(posedge clk);
     end
     endtask
 
-    // ==================== SEND BYTE WITH MESSAGE ====================
+    // ==================== SEND BYTE WITH MSG ====================
     task send_byte_with_msg(input [7:0] byte_val, input [127:0] msg);
     begin
         $display("[%0t] SEND: %s = 0x%h", $time, msg, byte_val);
@@ -91,7 +97,8 @@ module tb_frame_reception;
             $display("[%0t] [OK] %s", $time, desc);
             test_passed = test_passed + 1;
         end else begin
-            $display("[%0t] [FAIL] %s | Expected: 0x%h, Got: 0x%h", $time, desc, expected, actual);
+            $display("[%0t] [FAIL] %s | Expected: 0x%h Got: 0x%h",
+                     $time, desc, expected, actual);
             test_failed = test_failed + 1;
         end
     end
@@ -99,123 +106,128 @@ module tb_frame_reception;
 
     // ==================== MAIN TEST ====================
     initial begin
+
         test_passed = 0;
         test_failed = 0;
-        byte_count = 0;
+        byte_count  = 0;
 
-        // Initialize
         clk = 0;
         rst_n = 0;
         rx_en = 0;
         rx_data = 0;
         rx_data_valid = 0;
 
-        $display("\n");
-        $display("====================================================");
+        $display("\n====================================================");
         $display("      ETHERNET FRAME RECEPTION TESTBENCH");
         $display("====================================================\n");
 
         // Reset
-        $display("[%0t] [INIT] Asserting reset...", $time);
-        repeat(2) @(posedge clk);
+        $display("[%0t] Reset asserted", $time);
+        repeat(4) @(posedge clk);
         rst_n = 1;
-        repeat(2) @(posedge clk);
-        $display("[%0t] [OK] Reset released\n", $time);
+        repeat(4) @(posedge clk);
+        $display("[%0t] Reset released\n", $time);
 
         // Start frame
-        $display("[%0t] [START] Frame reception begins", $time);
         @(posedge clk);
         rx_en <= 1;
 
-        // ========== PREAMBLE ==========
-        $display("\n--- PREAMBLE (7 bytes of 0xAA) ---");
-        repeat(7) send_byte_with_msg(8'hAA, "Preamble byte");
+        // ==================== PREAMBLE ====================
+        $display("\n--- PREAMBLE ---");
+        repeat(7) send_byte_with_msg(8'hAA, "Preamble");
 
-        // ========== SFD ==========
-        $display("\n--- SFD (Start Frame Delimiter) ---");
+        // ==================== SFD ====================
+        $display("\n--- SFD ---");
         send_byte_with_msg(8'hAB, "SFD");
 
-        // ========== DEST MAC ==========
-        $display("\n--- DESTINATION MAC ADDRESS (6 bytes) ---");
-        send_byte_with_msg(8'h11, "Dest MAC[47:40]");
-        send_byte_with_msg(8'h22, "Dest MAC[39:32]");
-        send_byte_with_msg(8'h33, "Dest MAC[31:24]");
-        send_byte_with_msg(8'h44, "Dest MAC[23:16]");
-        send_byte_with_msg(8'h55, "Dest MAC[15:8]");
-        send_byte_with_msg(8'h66, "Dest MAC[7:0]");
+        // ==================== DEST MAC ====================
+        $display("\n--- DEST MAC ---");
+        send_byte_with_msg(8'h11,"Dest[47:40]");
+        send_byte_with_msg(8'h22,"Dest[39:32]");
+        send_byte_with_msg(8'h33,"Dest[31:24]");
+        send_byte_with_msg(8'h44,"Dest[23:16]");
+        send_byte_with_msg(8'h55,"Dest[15:8]");
+        send_byte_with_msg(8'h66,"Dest[7:0]");
 
-        // ========== SRC MAC ==========
-        $display("\n--- SOURCE MAC ADDRESS (6 bytes) ---");
-        send_byte_with_msg(8'hAA, "Src MAC[47:40]");
-        send_byte_with_msg(8'hBB, "Src MAC[39:32]");
-        send_byte_with_msg(8'hCC, "Src MAC[31:24]");
-        send_byte_with_msg(8'hDD, "Src MAC[23:16]");
-        send_byte_with_msg(8'hEE, "Src MAC[15:8]");
-        send_byte_with_msg(8'hFF, "Src MAC[7:0]");
+        // ==================== SRC MAC ====================
+        $display("\n--- SRC MAC ---");
+        send_byte_with_msg(8'hAA,"Src[47:40]");
+        send_byte_with_msg(8'hBB,"Src[39:32]");
+        send_byte_with_msg(8'hCC,"Src[31:24]");
+        send_byte_with_msg(8'hDD,"Src[23:16]");
+        send_byte_with_msg(8'hEE,"Src[15:8]");
+        send_byte_with_msg(8'hFF,"Src[7:0]");
 
-        // ========== ETH TYPE ==========
-        $display("\n--- ETHERNET TYPE (2 bytes) ---");
-        send_byte_with_msg(8'h08, "Type[15:8] (IPv4)");
-        send_byte_with_msg(8'h00, "Type[7:0]");
+        // ==================== ETH TYPE ====================
+        $display("\n--- ETH TYPE ---");
+        send_byte_with_msg(8'h08,"Type[15:8]");
+        send_byte_with_msg(8'h00,"Type[7:0]");
 
-        // ========== PAYLOAD + CRC ==========
-        $display("\n--- PAYLOAD + CRC (50+ bytes) ---");
-        // Send minimum payload (46 bytes)
-        repeat(46) begin
-            send_byte(8'h00);
-            byte_count = byte_count + 1;
-        end
-        $display("[%0t] Sent 46 payload bytes", $time);
+        // ==================== PAYLOAD ====================
+        $display("\n--- PAYLOAD ---");
+        for (byte_count=0; byte_count<46; byte_count=byte_count+1)
+            send_byte(byte_count);
 
-        // Send CRC (4 bytes) - example values, will be validated by CRC checker
-        send_byte_with_msg(8'hDE, "CRC[31:24]");
-        send_byte_with_msg(8'hAD, "CRC[23:16]");
-        send_byte_with_msg(8'hBE, "CRC[15:8]");
-        send_byte_with_msg(8'hEF, "CRC[7:0]");
+        // ==================== CRC ====================
+        $display("\n--- CRC ---");
+        send_byte_with_msg(8'hE3,"CRC");
+        send_byte_with_msg(8'hA3,"CRC");
+        send_byte_with_msg(8'hD2,"CRC");
+        send_byte_with_msg(8'h1D,"CRC");
 
-        // ========== END FRAME ==========
-        $display("\n--- END OF FRAME ---");
-        @(posedge clk);
+        // End frame (trigger CRC finalize)
         rx_en <= 0;
-        $display("[%0t] Frame reception ends", $time);
 
-        // ========== IMMEDIATE RESULTS CHECK (when frame ends) ==========
+        // wait for receiver to finish
+        @(posedge rx_done);
+
+        // sample results AFTER CRC check
+        sampled_dest_mac   = dest_mac;
+        sampled_src_mac    = src_mac;
+        sampled_eth_type   = eth_type;
+        sampled_frame_valid = frame_valid;
+
+        $display("\n[TB] Results sampled after rx_done\n");
+
+                repeat(10) @(posedge clk);
+
+        // ==================== CHECK RESULTS ====================
         $display("\n====================================================");
-        $display("               TEST RESULTS SUMMARY");
+        $display("               TEST RESULTS");
         $display("====================================================\n");
 
-        check_result("Dest MAC Address", dest_mac, 48'h112233445566);
-        check_result("Src MAC Address", src_mac, 48'hAABBCCDDEEFF);
-        check_result("Ethernet Type", eth_type, 16'h0800);
+        check_result("Dest MAC",sampled_dest_mac,48'h112233445566);
+        check_result("Src MAC",sampled_src_mac,48'hAABBCCDDEEFF);
+        check_result("Eth Type",sampled_eth_type,16'h0800);
 
         $display("\n--- CRC VALIDATION ---");
-        $display("Frame Valid: %b", frame_valid);
-        if (frame_valid) begin
+
+        if (sampled_frame_valid) begin
             $display("[OK] CRC validation PASSED");
             test_passed = test_passed + 1;
-        end else begin
-            $display("[INFO] CRC validation FAILED (test data not CRC-valid)");
+        end
+        else begin
+            $display("[INFO] CRC validation FAILED (frame_valid=0)");
         end
 
-        $display("\n====================================================");
-        $display("Tests Passed: %0d", test_passed);
-        $display("Tests Failed: %0d", test_failed);
-        $display("====================================================\n");
+        $display("\nTests Passed: %0d",test_passed);
+        $display("Tests Failed: %0d\n",test_failed);
 
-        if (test_failed == 0)
+        if (test_failed==0)
             $display("[SUCCESS] All tests passed!");
         else
-            $display("[WARNING] Some tests failed. Review output.");
+            $display("[WARNING] Some tests failed.");
 
         $stop;
+
     end
 
-    // ==================== STATE CHANGE MONITOR ====================
+    // ==================== STATE MONITOR ====================
     always @(posedge clk) begin
         if (rst_n) begin
-            // Only print on state change
             if (uut.state != prev_state) begin
-                $display("[%0t] [STATE CHANGE] %s -> %s", $time, prev_state_name, state_name);
+                $display("[%0t] STATE: %s -> %s",
+                         $time, prev_state_name, state_name);
                 prev_state <= uut.state;
                 prev_state_name <= state_name;
             end
